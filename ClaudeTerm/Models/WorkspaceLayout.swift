@@ -12,6 +12,12 @@ struct WorkspaceLayout: Codable, Identifiable {
         var name: String
         var color: String
         var rootPane: PaneLayout
+        var agents: [ServerLayout]?  // legacy field name kept for backward compat decoding
+    }
+
+    struct ServerLayout: Codable {
+        var name: String
+        var command: String
     }
 
     init(id: UUID = UUID(), name: String, tabs: [TabLayout], backlog: BacklogLayout? = nil) {
@@ -39,39 +45,107 @@ struct BadgeLayout: Codable {
     var status: String
 }
 
+struct BoardLayout: Codable {
+    var id: UUID
+    var name: String
+    var badges: [BadgeLayout]?
+    var bullets: [BulletLayout]?
+    var color: String?
+}
+
 struct BacklogLayout: Codable {
-    var badges: [BadgeLayout]
+    var badges: [BadgeLayout]?
+    var boards: [BoardLayout]?
+    var featureBoards: [BoardLayout]?
+    var bugBoards: [BoardLayout]?
 
     static func fromBacklogStore(_ store: BacklogStore) -> BacklogLayout {
-        let badgeLayouts = store.badges.map { badge in
-            BadgeLayout(
-                id: badge.id,
-                title: badge.title,
-                bullets: badge.bullets.map { bullet in
+        let featureBoardLayouts = store.featureBoards.map { board in
+            BoardLayout(
+                id: board.id,
+                name: board.name,
+                badges: nil,
+                bullets: board.bullets.map { bullet in
                     BulletLayout(id: bullet.id, text: bullet.text, status: bullet.status.rawValue)
                 },
-                status: badge.status.rawValue
+                color: board.color == .default ? nil : board.color.rawValue
             )
         }
-        return BacklogLayout(badges: badgeLayouts)
+        let bugBoardLayouts = store.bugBoards.map { board in
+            BoardLayout(
+                id: board.id,
+                name: board.name,
+                badges: nil,
+                bullets: board.bullets.map { bullet in
+                    BulletLayout(id: bullet.id, text: bullet.text, status: bullet.status.rawValue)
+                },
+                color: board.color == .default ? nil : board.color.rawValue
+            )
+        }
+        return BacklogLayout(featureBoards: featureBoardLayouts, bugBoards: bugBoardLayouts)
     }
 
     func toBacklogStore() -> BacklogStore {
-        let badges = badges.map { badgeLayout in
-            Badge(
-                id: badgeLayout.id,
-                title: badgeLayout.title,
-                bullets: badgeLayout.bullets.map { bulletLayout in
+        // New format: separate feature/bug boards
+        if let featureBoardLayouts = featureBoards, let bugBoardLayouts = bugBoards {
+            let fBoards = featureBoardLayouts.map { decodeBoardLayout($0) }
+            let bBoards = bugBoardLayouts.map { decodeBoardLayout($0) }
+            return BacklogStore(
+                featureBoards: fBoards.isEmpty ? nil : fBoards,
+                bugBoards: bBoards.isEmpty ? nil : bBoards
+            )
+        }
+
+        // Old format: single boards array → treat as feature boards
+        if let boards, !boards.isEmpty {
+            let kanbanBoards = boards.map { decodeBoardLayout($0) }
+            return BacklogStore(featureBoards: kanbanBoards, bugBoards: nil)
+        }
+
+        // Legacy migration: single badges array becomes one feature board
+        if let badges, !badges.isEmpty {
+            let bullets = badges.flatMap { badgeLayout in
+                badgeLayout.bullets.map { bulletLayout in
                     Bullet(
                         id: bulletLayout.id,
                         text: bulletLayout.text,
                         status: ItemStatus(rawValue: bulletLayout.status) ?? .default
                     )
-                },
-                status: ItemStatus(rawValue: badgeLayout.status) ?? .default
-            )
+                }
+            }
+            return BacklogStore(featureBoards: [KanbanBoard(name: "Prompt Backlog", bullets: bullets)], bugBoards: nil)
         }
-        return BacklogStore(badges: badges)
+
+        return BacklogStore()
+    }
+
+    private func decodeBoardLayout(_ boardLayout: BoardLayout) -> KanbanBoard {
+        let boardColor = boardLayout.color.flatMap { TerminalColor(rawValue: $0) } ?? .default
+        // New format: flat bullets array
+        if let bulletLayouts = boardLayout.bullets, !bulletLayouts.isEmpty {
+            let bullets = bulletLayouts.map { bulletLayout in
+                Bullet(
+                    id: bulletLayout.id,
+                    text: bulletLayout.text,
+                    status: ItemStatus(rawValue: bulletLayout.status) ?? .default
+                )
+            }
+            return KanbanBoard(id: boardLayout.id, name: boardLayout.name, bullets: bullets, color: boardColor)
+        }
+        // Old format: flatten badges into flat bullet list
+        if let badgeLayouts = boardLayout.badges, !badgeLayouts.isEmpty {
+            let bullets = badgeLayouts.flatMap { badgeLayout in
+                badgeLayout.bullets.map { bulletLayout in
+                    Bullet(
+                        id: bulletLayout.id,
+                        text: bulletLayout.text,
+                        status: ItemStatus(rawValue: bulletLayout.status) ?? .default
+                    )
+                }
+            }
+            return KanbanBoard(id: boardLayout.id, name: boardLayout.name, bullets: bullets, color: boardColor)
+        }
+        return KanbanBoard(id: boardLayout.id, name: boardLayout.name, color: boardColor)
     }
 }
 
@@ -173,16 +247,16 @@ extension PaneLayout {
 extension WorkspaceLayout {
     static func capture(from windowState: WindowState, name: String) -> WorkspaceLayout {
         let tabLayouts = windowState.tabs.map { tab in
-            TabLayout(
+            // Servers are discovered from README — don't embed in workspace
+            return TabLayout(
                 name: tab.focusedSession?.name ?? "Terminal",
                 color: tab.color.rawValue,
-                rootPane: PaneLayout.fromPaneNode(tab.rootPane)
+                rootPane: PaneLayout.fromPaneNode(tab.rootPane),
+                agents: nil
             )
         }
-        let backlogLayout = windowState.backlog.badges.isEmpty
-            ? nil
-            : BacklogLayout.fromBacklogStore(windowState.backlog)
-        return WorkspaceLayout(name: name, tabs: tabLayouts, backlog: backlogLayout)
+        // Backlogs now persist via backlog.goat.md — don't embed in workspace
+        return WorkspaceLayout(name: name, tabs: tabLayouts, backlog: nil)
     }
 
     func restore() -> [TabModel] {
@@ -191,6 +265,10 @@ extension WorkspaceLayout {
             let tab = TabModel()
             tab.rootPane = rootNode
             tab.focusedSessionId = rootNode.firstSession?.id
+            if let dir = rootNode.firstSession?.currentDirectory {
+                tab.editorState.rootDirectory = dir
+            }
+            // Legacy agent configs are ignored — servers re-discovered from README
             return tab
         }
     }

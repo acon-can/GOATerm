@@ -2,6 +2,7 @@ import SwiftUI
 
 struct GitHubPanelView: View {
     @Bindable var githubState: GitHubState
+    var currentDirectory: String?
 
     var body: some View {
         if !githubState.isAuthenticated {
@@ -20,28 +21,50 @@ struct GitHubPanelView: View {
         } else {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
-                    if !githubState.myPRs.isEmpty {
-                        sectionHeader("My Pull Requests", count: githubState.myPRs.count)
-                        ForEach(githubState.myPRs) { pr in
+                    // Repo badge
+                    if let repo = githubState.currentRepo {
+                        HStack(spacing: 4) {
+                            Image(systemName: "line.3.horizontal.decrease.circle")
+                                .font(.system(size: 10))
+                            Text(repo)
+                                .font(.system(size: 10, design: .monospaced))
+                        }
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(Color.accentColor.opacity(0.1), in: Capsule())
+                    }
+
+                    // Local git status
+                    if let info = githubState.localGitInfo {
+                        localGitSection(info)
+                    }
+
+                    // GitHub PRs
+                    if !githubState.filteredPRs.isEmpty {
+                        sectionHeader("My Pull Requests", count: githubState.filteredPRs.count)
+                        ForEach(githubState.filteredPRs) { pr in
                             PRRowView(pr: pr, showActions: false)
                         }
                     }
 
-                    if !githubState.reviewRequests.isEmpty {
-                        sectionHeader("Review Requests", count: githubState.reviewRequests.count)
-                        ForEach(githubState.reviewRequests) { pr in
+                    // Review requests
+                    if !githubState.filteredReviewRequests.isEmpty {
+                        sectionHeader("Review Requests", count: githubState.filteredReviewRequests.count)
+                        ForEach(githubState.filteredReviewRequests) { pr in
                             PRRowView(pr: pr, showActions: true)
                         }
                     }
 
-                    if !githubState.assignedIssues.isEmpty {
-                        sectionHeader("My Issues", count: githubState.assignedIssues.count)
-                        ForEach(githubState.assignedIssues) { issue in
+                    // Assigned issues
+                    if !githubState.filteredIssues.isEmpty {
+                        sectionHeader("My Issues", count: githubState.filteredIssues.count)
+                        ForEach(githubState.filteredIssues) { issue in
                             IssueRowView(issue: issue)
                         }
                     }
 
-                    if githubState.myPRs.isEmpty && githubState.reviewRequests.isEmpty && githubState.assignedIssues.isEmpty {
+                    if githubState.localGitInfo == nil && githubState.filteredPRs.isEmpty && githubState.filteredReviewRequests.isEmpty && githubState.filteredIssues.isEmpty {
                         if githubState.isLoading {
                             ProgressView()
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -65,21 +88,180 @@ struct GitHubPanelView: View {
             }
             .task {
                 await GitHubPollingService.shared.refresh(state: githubState)
+                await detectRepoAndGitInfo()
+            }
+            .onChange(of: currentDirectory) { _, _ in
+                Task { await detectRepoAndGitInfo() }
+            }
+        }
+    }
+
+    // MARK: - Local Git Info Section
+
+    @ViewBuilder
+    private func localGitSection(_ info: LocalGitInfo) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Repository Status", count: 0, showCount: false)
+
+            // Branch + tracking
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.system(size: 10))
+                    .foregroundColor(.accentColor)
+                Text(info.branch)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+
+                if let tracking = info.trackingBranch {
+                    Text("\u{2192} \(tracking)")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            // Ahead/behind
+            if info.ahead > 0 || info.behind > 0 {
+                HStack(spacing: 8) {
+                    if info.ahead > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 9))
+                            Text("\(info.ahead) ahead")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundColor(.green)
+                    }
+                    if info.behind > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "arrow.down")
+                                .font(.system(size: 9))
+                            Text("\(info.behind) behind")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundColor(.orange)
+                    }
+                }
+            }
+
+            // Working tree status
+            if info.hasUncommittedChanges {
+                HStack(spacing: 8) {
+                    if info.stagedCount > 0 {
+                        statusBadge(
+                            icon: "checkmark.circle.fill",
+                            text: "\(info.stagedCount) staged",
+                            color: .green
+                        )
+                    }
+                    if info.modifiedCount > 0 {
+                        statusBadge(
+                            icon: "pencil.circle.fill",
+                            text: "\(info.modifiedCount) modified",
+                            color: .orange
+                        )
+                    }
+                    if info.untrackedCount > 0 {
+                        statusBadge(
+                            icon: "questionmark.circle.fill",
+                            text: "\(info.untrackedCount) untracked",
+                            color: .secondary
+                        )
+                    }
+                    if info.conflictCount > 0 {
+                        statusBadge(
+                            icon: "exclamationmark.triangle.fill",
+                            text: "\(info.conflictCount) conflicts",
+                            color: .red
+                        )
+                    }
+                }
+            } else if info.trackingBranch != nil && info.ahead == 0 && info.behind == 0 {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 10))
+                    Text("Clean, up to date")
+                        .font(.system(size: 10))
+                }
+                .foregroundColor(.green)
+            }
+
+            // Stashes
+            if info.stashCount > 0 {
+                HStack(spacing: 4) {
+                    Image(systemName: "archivebox")
+                        .font(.system(size: 10))
+                    Text("\(info.stashCount) stash\(info.stashCount == 1 ? "" : "es")")
+                        .font(.system(size: 10))
+                }
+                .foregroundColor(.secondary)
+            }
+
+            // Recent commits
+            if !info.recentCommits.isEmpty {
+                sectionHeader("Recent Commits", count: info.recentCommits.count)
+                ForEach(info.recentCommits) { commit in
+                    commitRow(commit)
+                }
             }
         }
     }
 
     @ViewBuilder
-    private func sectionHeader(_ title: String, count: Int) -> some View {
+    private func statusBadge(icon: String, text: String, color: Color) -> some View {
+        HStack(spacing: 2) {
+            Image(systemName: icon)
+                .font(.system(size: 9))
+            Text(text)
+                .font(.system(size: 10))
+        }
+        .foregroundColor(color)
+    }
+
+    @ViewBuilder
+    private func commitRow(_ commit: GitCommitInfo) -> some View {
+        HStack(spacing: 6) {
+            Text(commit.hash)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.accentColor)
+            Text(commit.message)
+                .font(PreferencesManager.uiFont(size: 11))
+                .lineLimit(1)
+            Spacer()
+            Text(commit.relativeDate)
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+        }
+        .padding(4)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+
+    // MARK: - Helpers
+
+    private func detectRepoAndGitInfo() async {
+        guard let dir = currentDirectory else {
+            githubState.currentRepo = nil
+            githubState.localGitInfo = nil
+            return
+        }
+        async let repo = GitHubService.detectRepo(in: dir)
+        async let gitInfo = GitHubService.fetchLocalGitInfo(in: dir)
+        githubState.currentRepo = await repo
+        githubState.localGitInfo = await gitInfo
+    }
+
+    @ViewBuilder
+    private func sectionHeader(_ title: String, count: Int, showCount: Bool = true) -> some View {
         HStack {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(PreferencesManager.uiFont(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
-            Text("\(count)")
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 4)
-                .background(Color.secondary.opacity(0.15), in: Capsule())
+            if showCount {
+                Text("\(count)")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 4)
+                    .background(Color.secondary.opacity(0.15), in: Capsule())
+            }
             Spacer()
         }
         .padding(.top, 4)
@@ -90,30 +272,18 @@ struct PRRowView: View {
     let pr: PRInfo
     let showActions: Bool
 
-    private var ciColor: Color {
-        switch pr.ciStatus?.displayState ?? .unknown {
-        case .success: return .green
-        case .failure: return .red
-        case .pending: return .yellow
-        case .unknown: return .gray
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                Circle()
-                    .fill(ciColor)
-                    .frame(width: 6, height: 6)
                 Text("#\(pr.number)")
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(.secondary)
                 Text(pr.title)
-                    .font(.system(size: 12))
+                    .font(PreferencesManager.uiFont(size: 12))
                     .lineLimit(1)
             }
             HStack(spacing: 6) {
-                Text(pr.headRefName)
+                Text(pr.repoName)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 4)
@@ -123,12 +293,12 @@ struct PRRowView: View {
                 if showActions {
                     Spacer()
                     Button("Approve") {
-                        Task { try? await GitHubService.approvePR(number: pr.number) }
+                        Task { try? await GitHubService.approvePR(repo: pr.repoName, number: pr.number) }
                     }
                     .controlSize(.mini)
 
                     Button("Merge") {
-                        Task { try? await GitHubService.mergePR(number: pr.number) }
+                        Task { try? await GitHubService.mergePR(repo: pr.repoName, number: pr.number) }
                     }
                     .controlSize(.mini)
                 }
@@ -145,14 +315,14 @@ struct IssueRowView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: issue.state == "OPEN" ? "circle.fill" : "checkmark.circle.fill")
+            Image(systemName: issue.state.lowercased() == "open" ? "circle.fill" : "checkmark.circle.fill")
                 .font(.system(size: 10))
-                .foregroundColor(issue.state == "OPEN" ? .green : .purple)
+                .foregroundColor(issue.state.lowercased() == "open" ? .green : .purple)
             Text("#\(issue.number)")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundColor(.secondary)
             Text(issue.title)
-                .font(.system(size: 12))
+                .font(PreferencesManager.uiFont(size: 12))
                 .lineLimit(1)
         }
         .padding(6)

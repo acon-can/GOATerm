@@ -4,26 +4,51 @@ struct EditorPanelView: View {
     @Bindable var editorState: EditorState
 
     @State private var rootNode: FileTreeNode?
+    @State private var directoryStack: [String] = []
 
     var body: some View {
         HSplitView {
             // File tree sidebar
             VStack(spacing: 0) {
-                HStack {
-                    Text("Files")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                // Back button when navigated into a subfolder
+                if !directoryStack.isEmpty {
+                    Button(action: navigateUp) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 10))
+                            Text(rootNode.map { $0.name } ?? "Back")
+                                .font(PreferencesManager.uiFont(size: 11))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        .foregroundColor(.accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
 
-                Divider()
+                    Divider()
+                }
 
                 if let rootNode = rootNode {
-                    FileTreeView(rootNode: rootNode) { path in
-                        editorState.openFile(at: path)
-                    }
+                    FileTreeView(
+                        rootNode: rootNode,
+                        onSelectFile: { path in
+                            editorState.openFile(at: path)
+                        },
+                        onSetRoot: { path in
+                            navigateInto(path)
+                        },
+                        onRename: {
+                            // Reload the current tree after a rename
+                            if let currentRoot = self.rootNode {
+                                loadFileTree(directory: currentRoot.path)
+                            }
+                        },
+                        activeFilePath: editorState.activeFile?.path
+                    )
                 } else {
                     Text("No directory loaded")
                         .font(.caption)
@@ -66,6 +91,7 @@ struct EditorPanelView: View {
                         fileExtension: (file.path as NSString).pathExtension,
                         onTextChange: { _ in file.isDirty = true }
                     )
+                    .clipped()
                 } else {
                     VStack(spacing: 12) {
                         Image(systemName: "doc.text")
@@ -81,6 +107,7 @@ struct EditorPanelView: View {
         }
         .background(Color(nsColor: .controlBackgroundColor))
         .onChange(of: editorState.rootDirectory) { _, newDir in
+            directoryStack = []
             loadFileTree(directory: newDir)
         }
         .onAppear {
@@ -97,6 +124,18 @@ struct EditorPanelView: View {
         node.loadChildren()
         node.isExpanded = true
         rootNode = node
+    }
+
+    private func navigateInto(_ path: String) {
+        if let currentRoot = rootNode {
+            directoryStack.append(currentRoot.path)
+        }
+        loadFileTree(directory: path)
+    }
+
+    private func navigateUp() {
+        guard let parentPath = directoryStack.popLast() else { return }
+        loadFileTree(directory: parentPath)
     }
 }
 
@@ -116,7 +155,7 @@ struct EditorTabView: View {
                     .frame(width: 6, height: 6)
             }
             Text(file.filename)
-                .font(.system(size: 11))
+                .font(PreferencesManager.uiFont(size: 11))
                 .lineLimit(1)
 
             Button(action: onClose) {

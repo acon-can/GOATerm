@@ -15,27 +15,30 @@ final class SessionRestorationService {
     struct SavedState: Codable {
         var tabs: [SavedTab]
         var activeTabIndex: Int
-        var backlog: BacklogLayout?
+        var backlog: BacklogLayout?  // kept for backward compat reading
 
         struct SavedTab: Codable {
             var rootPane: PaneLayout
             var focusedSessionName: String?
+            var agents: [WorkspaceLayout.ServerLayout]?  // legacy field name kept for backward compat
         }
     }
 
     func saveState(from windowState: WindowState) {
+        // Save all cached backlogs to their directories
+        windowState.saveActiveBacklog()
+
         let savedTabs = windowState.tabs.map { tab in
-            SavedState.SavedTab(
+            // Servers are discovered from README — don't persist configs
+            return SavedState.SavedTab(
                 rootPane: PaneLayout.fromPaneNode(tab.rootPane),
-                focusedSessionName: tab.focusedSession?.name
+                focusedSessionName: tab.focusedSession?.name,
+                agents: nil
             )
         }
 
         let activeIndex = windowState.activeTabIndex ?? 0
-        let backlogLayout = windowState.backlog.badges.isEmpty
-            ? nil
-            : BacklogLayout.fromBacklogStore(windowState.backlog)
-        let state = SavedState(tabs: savedTabs, activeTabIndex: activeIndex, backlog: backlogLayout)
+        let state = SavedState(tabs: savedTabs, activeTabIndex: activeIndex, backlog: nil)
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
@@ -62,6 +65,10 @@ final class SessionRestorationService {
             let tab = TabModel()
             tab.rootPane = rootNode
             tab.focusedSessionId = rootNode.firstSession?.id
+            if let dir = rootNode.firstSession?.currentDirectory {
+                tab.editorState.rootDirectory = dir
+            }
+            // Legacy agent configs are ignored — servers re-discovered from README
             return tab
         }
 
@@ -69,8 +76,14 @@ final class SessionRestorationService {
         let activeIndex = min(state.activeTabIndex, tabs.count - 1)
         windowState.activeTabId = tabs[activeIndex].id
 
+        // Legacy migration: if old session state had inline backlog, save it to disk
         if let backlogLayout = state.backlog {
-            windowState.backlog = backlogLayout.toBacklogStore()
+            let legacyStore = backlogLayout.toBacklogStore()
+            // Save to the first tab's directory
+            if let dir = tabs.first?.focusedSession?.currentDirectory {
+                legacyStore.directory = dir
+                BacklogFileService.shared.save(legacyStore)
+            }
         }
 
         // Clean up saved state after successful restore

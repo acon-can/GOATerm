@@ -63,6 +63,8 @@ final class FileTreeNode: Identifiable {
     let isDirectory: Bool
     var children: [FileTreeNode]?
     var isExpanded: Bool = false
+    var isRenaming: Bool = false
+    var editingName: String = ""
 
     init(name: String, path: String, isDirectory: Bool) {
         self.id = UUID()
@@ -79,7 +81,6 @@ final class FileTreeNode: Identifiable {
             return
         }
         children = items
-            .filter { !$0.hasPrefix(".") }
             .compactMap { name -> FileTreeNode? in
                 let fullPath = (path as NSString).appendingPathComponent(name)
                 var isDir: ObjCBool = false

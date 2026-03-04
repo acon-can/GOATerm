@@ -6,6 +6,8 @@ struct SplitContainerView: View {
     var onFocusSession: ((UUID) -> Void)?
     var onProcessExit: ((UUID) -> Void)?
 
+    private var prefs: PreferencesManager { PreferencesManager.shared }
+
     var body: some View {
         switch paneNode {
         case .terminal(let session):
@@ -13,14 +15,9 @@ struct SplitContainerView: View {
                 TerminalPaneView(
                     session: session,
                     isFocused: session.id == focusedSessionId,
+                    fontName: PreferencesManager.defaultFontName,
+                    fontSize: prefs.fontSize,
                     onProcessExit: { onProcessExit?(session.id) }
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 2)
-                        .stroke(
-                            session.id == focusedSessionId ? Color.accentColor : Color.clear,
-                            lineWidth: 2
-                        )
                 )
                 .contentShape(Rectangle())
                 .onTapGesture {

@@ -7,6 +7,12 @@ struct TabBarView: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            // Traffic light spacer
+            Color.clear
+                .frame(width: 68)
+                .allowsHitTesting(false)
+
+            // Tab scroll area
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
                     ForEach(windowState.tabs) { tab in
@@ -16,7 +22,6 @@ struct TabBarView: View {
                             isEditing: editingTabId == tab.id,
                             onSelect: {
                                 windowState.activeTabId = tab.id
-                                // Clear unseen completions when tab selected
                                 for session in tab.allSessions {
                                     session.hasUnseenCompletion = false
                                 }
@@ -45,18 +50,18 @@ struct TabBarView: View {
                     // New tab button
                     Button(action: { windowState.addTab() }) {
                         Image(systemName: "plus")
-                            .font(.system(size: 11))
+                            .font(PreferencesManager.uiFont(size: 11))
                             .foregroundColor(.secondary)
                             .frame(width: 24, height: 24)
                     }
                     .buttonStyle(HoverButtonStyle(cornerRadius: 6))
                     .help("New Tab (Cmd+T)")
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 6)
             }
 
-            // Backlog toggle button — pinned to right edge
+            // Backlog toggle button — right-aligned inside the island
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     windowState.toggleBacklog()
@@ -69,9 +74,17 @@ struct TabBarView: View {
             }
             .buttonStyle(HoverButtonStyle(cornerRadius: 6))
             .help("Toggle Backlog (Cmd+Shift+B)")
-            .padding(.trailing, 8)
+            .padding(.trailing, 6)
         }
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.95))
+        .frame(height: 38)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(nsColor: .controlBackgroundColor))
+                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+        )
+        .padding(.top, 6)
+        .padding(.leading, 6)
+        .padding(.bottom, 6)
     }
 }
 
@@ -123,12 +136,12 @@ struct TabItemView: View {
                     onEndEditing()
                 })
                 .textFieldStyle(.plain)
-                .font(.system(size: 12))
+                .font(PreferencesManager.uiFont(size: 12))
                 .frame(width: 100)
                 .onAppear { editName = tab.focusedSession?.name ?? "Terminal" }
             } else {
                 Text(tab.displayTitle)
-                    .font(.system(size: 12))
+                    .font(PreferencesManager.uiFont(size: 12))
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
@@ -145,7 +158,7 @@ struct TabItemView: View {
                 if let branch = session.gitBranch {
                     Button(action: { showGitGraph.toggle() }) {
                         Text(branch)
-                            .font(.system(size: 10))
+                            .font(PreferencesManager.uiFont(size: 10))
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
@@ -159,7 +172,7 @@ struct TabItemView: View {
 
                 if let cmd = session.runningCommand {
                     Text(cmd)
-                        .font(.system(size: 10))
+                        .font(PreferencesManager.uiFont(size: 10))
                         .foregroundColor(.orange)
                         .lineLimit(1)
                 }

@@ -26,7 +26,7 @@ final class TerminalSession: Identifiable {
         id: UUID = UUID(),
         name: String = "Terminal",
         color: TerminalColor = .default,
-        currentDirectory: String = NSHomeDirectory()
+        currentDirectory: String = PreferencesManager.shared.effectiveDefaultDirectory
     ) {
         self.id = id
         self.name = name

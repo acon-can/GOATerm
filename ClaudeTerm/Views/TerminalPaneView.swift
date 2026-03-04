@@ -2,20 +2,48 @@ import SwiftUI
 import SwiftTerm
 import AppKit
 
+class TerminalContainerView: NSView {
+    let terminalView: LocalProcessTerminalView
+
+    init(terminalView: LocalProcessTerminalView) {
+        self.terminalView = terminalView
+        super.init(frame: .zero)
+        wantsLayer = true
+        terminalView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(terminalView)
+        NSLayoutConstraint.activate([
+            terminalView.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            terminalView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            terminalView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            terminalView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func updateLayer() {
+        layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+    }
+}
+
 struct TerminalPaneView: NSViewRepresentable {
     let session: TerminalSession
     let isFocused: Bool
+    let fontName: String
+    let fontSize: CGFloat
     var onProcessExit: (() -> Void)?
+    @Environment(\.colorScheme) private var colorScheme
 
-    func makeNSView(context: Context) -> LocalProcessTerminalView {
+    func makeNSView(context: Context) -> TerminalContainerView {
         let terminalView = LocalProcessTerminalView(frame: .zero)
+        let container = TerminalContainerView(terminalView: terminalView)
         context.coordinator.terminalView = terminalView
         context.coordinator.session = session
 
         // Configure terminal appearance
         let prefs = PreferencesManager.shared
-        let font = NSFont(name: prefs.fontName, size: prefs.fontSize)
-            ?? NSFont.monospacedSystemFont(ofSize: prefs.fontSize, weight: .regular)
+        let font = NSFont(name: fontName, size: fontSize)
+            ?? NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         terminalView.font = font
         terminalView.applyClaudeTermTheme()
         terminalView.optionAsMetaKey = prefs.optionAsMeta
@@ -42,24 +70,30 @@ struct TerminalPaneView: NSViewRepresentable {
             currentDirectory: shellEnv.workingDirectory
         )
 
-        return terminalView
+        return container
     }
 
-    func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {
+    func updateNSView(_ nsView: TerminalContainerView, context: Context) {
+        let terminalView = nsView.terminalView
         context.coordinator.session = session
 
         // Apply font changes live
-        let prefs = PreferencesManager.shared
-        let font = NSFont(name: prefs.fontName, size: prefs.fontSize)
-            ?? NSFont.monospacedSystemFont(ofSize: prefs.fontSize, weight: .regular)
-        if nsView.font != font {
-            nsView.font = font
+        let font = NSFont(name: fontName, size: fontSize)
+            ?? NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        if terminalView.font != font {
+            terminalView.font = font
         }
+
+        // Re-apply theme on appearance change
+        terminalView.applyClaudeTermTheme()
+
+        // Update container background on appearance change
+        nsView.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
 
         // Handle focus
         if isFocused {
             DispatchQueue.main.async {
-                nsView.window?.makeFirstResponder(nsView)
+                terminalView.window?.makeFirstResponder(terminalView)
             }
         }
     }
@@ -128,6 +162,15 @@ struct TerminalPaneView: NSViewRepresentable {
                             self.session.lastCommand = value
                             self.session.commandStartTime = Date()
                             self.session.lastOutputContainsPermissionDenied = false
+
+                            // Save Claude prompts to history
+                            if value.lowercased().hasPrefix("claude") {
+                                let afterClaude = value.dropFirst("claude".count).drop(while: { $0 == " " })
+                                let prompt = String(afterClaude)
+                                if !prompt.isEmpty {
+                                    PromptHistoryService.shared.addPrompt(prompt, directory: self.session.currentDirectory)
+                                }
+                            }
                         }
                     default:
                         break
@@ -228,14 +271,17 @@ struct TerminalPaneView: NSViewRepresentable {
 
 extension LocalProcessTerminalView {
     func applyClaudeTermTheme() {
-        // Use a light terminal theme
-        let bg = NSColor.white
-        let fg = NSColor(red: 0.1, green: 0.1, blue: 0.12, alpha: 1.0)
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let bg = NSColor.windowBackgroundColor
+        let fg = isDark
+            ? NSColor(red: 0.9, green: 0.9, blue: 0.92, alpha: 1.0)
+            : NSColor(red: 0.1, green: 0.1, blue: 0.12, alpha: 1.0)
         nativeBackgroundColor = bg
         nativeForegroundColor = fg
 
-        // Set cursor/selection color
-        let cursor = NSColor(red: 0.7, green: 0.8, blue: 1.0, alpha: 0.4)
+        let cursor = isDark
+            ? NSColor(red: 0.4, green: 0.5, blue: 0.8, alpha: 0.5)
+            : NSColor(red: 0.7, green: 0.8, blue: 1.0, alpha: 0.4)
         selectedTextBackgroundColor = cursor
     }
 }

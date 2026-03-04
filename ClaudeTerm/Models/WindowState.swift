@@ -1,18 +1,40 @@
 import Foundation
 
+enum BottomPanelMode: String, CaseIterable {
+    case chat = "Chat"
+    case files = "Files"
+    case github = "Git"
+    case servers = "Servers"
+    case environment = "Env"
+
+    var icon: String {
+        switch self {
+        case .chat: return "bubble.left.and.bubble.right"
+        case .github: return "arrow.triangle.branch"
+        case .files: return "doc.text"
+        case .servers: return "server.rack"
+        case .environment: return "doc.badge.gearshape"
+        }
+    }
+}
+
 @Observable
 final class WindowState {
     var tabs: [TabModel] = []
     var activeTabId: UUID?
     var showSaveWorkspace: Bool = false
     var showWorkspaceManager: Bool = false
-    var backlog: BacklogStore = BacklogStore()
+    private var backlogCache: [String: BacklogStore] = [:]
     var isBacklogVisible: Bool = true
     var backlogWidthRatio: Double = 0.25
     var showClaudeProject: Bool = false
-    var editorState: EditorState = EditorState()
-    var agentStore: AgentStore = AgentStore()
     var githubState: GitHubState = GitHubState()
+
+    // Bottom panel
+    var isBottomPanelExpanded: Bool = true
+    var bottomPanelMode: BottomPanelMode = .chat
+    var bottomPanelHeightRatio: Double = 0.35
+    var savedBottomPanelHeightRatio: Double = 0.35
 
     init() {
         let firstTab = TabModel()
@@ -24,8 +46,43 @@ final class WindowState {
         tabs.first { $0.id == activeTabId }
     }
 
+    var activeEditorState: EditorState? { activeTab?.editorState }
+    var activeServerStore: ServerStore? { activeTab?.serverStore }
+    var activeChatSession: ChatSession? { activeTab?.chatSession }
+
     var activeTabIndex: Int? {
         tabs.firstIndex { $0.id == activeTabId }
+    }
+
+    // MARK: - Per-Directory Backlog
+
+    var activeTerminalDirectory: String {
+        activeTab?.focusedSession?.currentDirectory ?? NSHomeDirectory()
+    }
+
+    var activeBacklog: BacklogStore {
+        get {
+            let dir = activeTerminalDirectory
+            if let cached = backlogCache[dir] {
+                return cached
+            }
+            let store = BacklogFileService.shared.load(from: dir)
+            backlogCache[dir] = store
+            return store
+        }
+        set {
+            let dir = activeTerminalDirectory
+            backlogCache[dir] = newValue
+        }
+    }
+
+    func saveActiveBacklog() {
+        BacklogFileService.shared.save(activeBacklog)
+    }
+
+    func saveBacklog(for directory: String) {
+        guard let store = backlogCache[directory] else { return }
+        BacklogFileService.shared.save(store)
     }
 
     // MARK: - Tab Operations
@@ -97,6 +154,26 @@ final class WindowState {
 
     func toggleBacklog() {
         isBacklogVisible.toggle()
+    }
+
+    // MARK: - Bottom Panel
+
+    func toggleBottomPanel() {
+        if isBottomPanelExpanded {
+            savedBottomPanelHeightRatio = bottomPanelHeightRatio
+            isBottomPanelExpanded = false
+        } else {
+            bottomPanelHeightRatio = savedBottomPanelHeightRatio
+            isBottomPanelExpanded = true
+        }
+    }
+
+    func showBottomPanel(mode: BottomPanelMode) {
+        bottomPanelMode = mode
+        if !isBottomPanelExpanded {
+            bottomPanelHeightRatio = savedBottomPanelHeightRatio
+            isBottomPanelExpanded = true
+        }
     }
 
     // MARK: - Pane Operations

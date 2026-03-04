@@ -17,6 +17,7 @@ struct ClaudeTermApp: App {
                     }
                 }
         }
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Tab") {
@@ -83,24 +84,34 @@ struct ClaudeTermApp: App {
             }
 
             CommandGroup(replacing: .help) {
-                Button("Toggle Backlog") {
+                Button("Toggle Kanban Board") {
                     windowState.toggleBacklog()
                 }
                 .keyboardShortcut("b", modifiers: [.command, .shift])
 
-                Button("Toggle Editor") {
-                    windowState.editorState.isVisible.toggle()
-                    if windowState.editorState.isVisible,
-                       let dir = windowState.activeTab?.focusedSession?.currentDirectory {
-                        windowState.editorState.rootDirectory = dir
-                    }
+                Button("Toggle Bottom Panel") {
+                    windowState.toggleBottomPanel()
+                }
+                .keyboardShortcut("k", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button("Show Files") {
+                    windowState.showBottomPanel(mode: .files)
                 }
                 .keyboardShortcut("e", modifiers: [.command, .shift])
 
-                Button("Toggle Dev Agents") {
-                    windowState.agentStore.isVisible.toggle()
+                Button("Show Servers") {
+                    windowState.showBottomPanel(mode: .servers)
                 }
                 .keyboardShortcut("j", modifiers: [.command, .shift])
+
+                Button("Show Environment") {
+                    windowState.showBottomPanel(mode: .environment)
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+
+                Divider()
 
                 Button("Claude Project Settings") {
                     windowState.showClaudeProject = true
@@ -110,7 +121,7 @@ struct ClaudeTermApp: App {
                 Divider()
 
                 Button("Save File") {
-                    windowState.editorState.activeFile?.save()
+                    windowState.activeTab?.editorState.activeFile?.save()
                 }
                 .keyboardShortcut("s", modifiers: .command)
 

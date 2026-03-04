@@ -74,8 +74,12 @@ struct WorkspaceManagerView: View {
         let tabs = workspace.restore()
         windowState.tabs = tabs
         windowState.activeTabId = tabs.first?.id
-        if let backlogLayout = workspace.backlog {
-            windowState.backlog = backlogLayout.toBacklogStore()
+        // Legacy: if workspace had inline backlog, save it to the first tab's directory
+        if let backlogLayout = workspace.backlog,
+           let dir = tabs.first?.focusedSession?.currentDirectory {
+            let legacyStore = backlogLayout.toBacklogStore()
+            legacyStore.directory = dir
+            BacklogFileService.shared.save(legacyStore)
         }
         dismiss()
     }

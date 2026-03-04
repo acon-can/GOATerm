@@ -123,6 +123,11 @@ class LineNumberRulerView: NSRulerView {
               let layoutManager = textView.layoutManager,
               let container = textView.textContainer else { return }
 
+        // Clip drawing to the provided rect to prevent bleeding outside bounds
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+        context.saveGState()
+        context.clip(to: rect)
+
         let visibleRect = textView.visibleRect
         let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: container)
         let charRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
@@ -145,6 +150,13 @@ class LineNumberRulerView: NSRulerView {
             lineRect.origin.y -= visibleRect.origin.y
             lineRect.origin.y += textView.textContainerInset.height
 
+            // Only draw if within the visible rect
+            guard lineRect.origin.y + lineRect.height >= rect.origin.y,
+                  lineRect.origin.y <= rect.origin.y + rect.height else {
+                lineNumber += 1
+                return
+            }
+
             let str = "\(lineNumber)" as NSString
             let size = str.size(withAttributes: attrs)
             let point = NSPoint(x: self.ruleThickness - size.width - 4, y: lineRect.origin.y + (lineRect.height - size.height) / 2)
@@ -152,5 +164,7 @@ class LineNumberRulerView: NSRulerView {
 
             lineNumber += 1
         }
+
+        context.restoreGState()
     }
 }

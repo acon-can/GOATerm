@@ -1,6 +1,6 @@
 import Foundation
 
-enum AgentStatus: String {
+enum ServerStatus: String {
     case stopped
     case starting
     case running
@@ -8,12 +8,21 @@ enum AgentStatus: String {
     case crashed
 }
 
+enum ServerDiscoveryStatus {
+    case idle
+    case scanning
+    case discovered
+    case noReadme
+    case noServers
+    case error(String)
+}
+
 @Observable
-final class AgentSession: Identifiable {
+final class ServerSession: Identifiable {
     let id: UUID
     var name: String
     var command: String
-    var status: AgentStatus
+    var status: ServerStatus
     var detectedPort: Int?
     var logOutput: String
     var autoRestart: Bool
@@ -23,7 +32,7 @@ final class AgentSession: Identifiable {
         id: UUID = UUID(),
         name: String = "",
         command: String = "",
-        status: AgentStatus = .stopped,
+        status: ServerStatus = .stopped,
         autoRestart: Bool = true
     ) {
         self.id = id
@@ -37,19 +46,35 @@ final class AgentSession: Identifiable {
 }
 
 @Observable
-final class AgentStore {
-    var agents: [AgentSession] = []
+final class ServerStore {
+    var servers: [ServerSession] = []
     var isVisible: Bool = false
+    var selectedServerId: UUID?
+    var discoveryStatus: ServerDiscoveryStatus = .idle
+    var currentDirectory: String?
 
-    @discardableResult
-    func addAgent(name: String = "Server", command: String = "") -> AgentSession {
-        let agent = AgentSession(name: name, command: command)
-        agents.append(agent)
-        return agent
+    var selectedServer: ServerSession? {
+        if let id = selectedServerId, let server = servers.first(where: { $0.id == id }) {
+            return server
+        }
+        return servers.first
     }
 
-    func removeAgent(id: UUID) {
-        DevServerService.shared.stop(agentId: id)
-        agents.removeAll { $0.id == id }
+    func setDiscoveredServers(_ discovered: [(name: String, command: String)]) {
+        // Stop all existing servers
+        for server in servers {
+            DevServerService.shared.stop(serverId: server.id)
+        }
+        servers = discovered.map { ServerSession(name: $0.name, command: $0.command) }
+        selectedServerId = servers.first?.id
+        discoveryStatus = discovered.isEmpty ? .noServers : .discovered
+    }
+
+    func removeServer(id: UUID) {
+        DevServerService.shared.stop(serverId: id)
+        servers.removeAll { $0.id == id }
+        if selectedServerId == id {
+            selectedServerId = servers.first?.id
+        }
     }
 }

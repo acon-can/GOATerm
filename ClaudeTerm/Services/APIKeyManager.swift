@@ -1,34 +1,33 @@
 import Foundation
-import Security
 
 enum APIKeyManager {
-    private static let service = "com.claudeterm.apikey"
-    private static let account = "anthropic"
+    private static var keyFile: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("ClaudeTerm")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent(".apikey")
+    }
 
     static func save(key: String) -> Bool {
-        delete()
         guard let data = key.data(using: .utf8) else { return false }
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecValueData as String: data
-        ]
-        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+        let url = keyFile
+        do {
+            try data.write(to: url, options: .atomic)
+            // Owner read/write only
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: url.path
+            )
+            return true
+        } catch {
+            return false
+        }
     }
 
     static func load() -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data,
-              let key = String(data: data, encoding: .utf8) else {
+        guard let data = try? Data(contentsOf: keyFile),
+              let key = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !key.isEmpty else {
             return nil
         }
         return key
@@ -36,11 +35,11 @@ enum APIKeyManager {
 
     @discardableResult
     static func delete() -> Bool {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account
-        ]
-        return SecItemDelete(query as CFDictionary) == errSecSuccess
+        do {
+            try FileManager.default.removeItem(at: keyFile)
+            return true
+        } catch {
+            return false
+        }
     }
 }

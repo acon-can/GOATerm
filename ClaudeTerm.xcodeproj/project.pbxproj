@@ -17,6 +17,7 @@
 		69AAE169E05F80B1480D9DBD /* PaneNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1A81EC1756C3EED5B5D1A7 /* PaneNode.swift */; };
 		8406A0FDED2D8B4055BD9C26 /* TerminalPaneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3958042B2CDC4E5A3ED6154 /* TerminalPaneView.swift */; };
 		858C2BC9F612CF3B58B1D758 /* SessionRestorationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7CFD8668D1B2C9BB222ACF7 /* SessionRestorationService.swift */; };
+		BF5E0002A1B2C3D4E5F60002 /* BacklogFileService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5E0001A1B2C3D4E5F60001 /* BacklogFileService.swift */; };
 		AC372870ECB017012B61049E /* WorkspaceLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2DDDCF32DA333B179DCD177 /* WorkspaceLayout.swift */; };
 		AD6197BD68A143A59C3DA5FB /* SplitContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D44397D4AFD908D8754572 /* SplitContainerView.swift */; };
 		AF5760AE2D98603255A31648 /* TerminalNameEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B6162158A41465B4A14E92B /* TerminalNameEditor.swift */; };
@@ -55,6 +56,14 @@
 		BB22CC33DD44EE55FF66AA16 /* GitHubService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF16 /* GitHubService.swift */; };
 		BB22CC33DD44EE55FF66AA17 /* GitHubPollingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF17 /* GitHubPollingService.swift */; };
 		BB22CC33DD44EE55FF66AA18 /* GitHubPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF18 /* GitHubPanelView.swift */; };
+		CC33DD44EE55FF66AA77BB19 /* KanbanBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB22CC33DD44EE55FF77AA19 /* KanbanBoardView.swift */; };
+		CC33DD44EE55FF66AA77BB20 /* BottomPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB22CC33DD44EE55FF77AA20 /* BottomPanelView.swift */; };
+		DD44EE55FF66AA77BB88CC21 /* ServerDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC33DD44EE55FF66AA88BB21 /* ServerDiscoveryService.swift */; };
+		EE55FF66AA77BB88CC99DD22 /* PromptHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD44EE55FF66AA77CC99BB22 /* PromptHistoryService.swift */; };
+		FF66AA77BB88CC99DD00EE23 /* PromptHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE55FF66AA77BB88DD99CC23 /* PromptHistoryView.swift */; };
+		AA77BB88CC99DD00EE11FF24 /* EnvironmentPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA77BB88CC99DD00EE11FF25 /* EnvironmentPanelView.swift */; };
+		DD11EE22FF33AA44BB55CC01 /* DMSans.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF33AA44BB55CC03 /* DMSans.ttf */; };
+		DD11EE22FF33AA44BB55CC02 /* DMSans-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF33AA44BB55CC04 /* DMSans-Italic.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,6 +89,7 @@
 		76A3EDB4F7F218F2CC544D56 /* TerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSession.swift; sourceTree = "<group>"; };
 		96847A1EE77B02D811A685FD /* WorkspacePersistenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspacePersistenceService.swift; sourceTree = "<group>"; };
 		A7CFD8668D1B2C9BB222ACF7 /* SessionRestorationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRestorationService.swift; sourceTree = "<group>"; };
+		BF5E0001A1B2C3D4E5F60001 /* BacklogFileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BacklogFileService.swift; sourceTree = "<group>"; };
 		AF6F8A4EFA18BEF8AD3FC7CB /* PTYManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYManager.swift; sourceTree = "<group>"; };
 		B1BC3F9C5358AAA9951820BD /* TabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarView.swift; sourceTree = "<group>"; };
 		C3958042B2CDC4E5A3ED6154 /* TerminalPaneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPaneView.swift; sourceTree = "<group>"; };
@@ -119,7 +129,27 @@
 		AA11BB22CC33DD44EE55FF16 /* GitHubService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubService.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE55FF17 /* GitHubPollingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubPollingService.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE55FF18 /* GitHubPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubPanelView.swift; sourceTree = "<group>"; };
+		BB22CC33DD44EE55FF77AA19 /* KanbanBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanbanBoardView.swift; sourceTree = "<group>"; };
+		BB22CC33DD44EE55FF77AA20 /* BottomPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomPanelView.swift; sourceTree = "<group>"; };
+		CC33DD44EE55FF66AA88BB21 /* ServerDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerDiscoveryService.swift; sourceTree = "<group>"; };
+		DD44EE55FF66AA77CC99BB22 /* PromptHistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptHistoryService.swift; sourceTree = "<group>"; };
+		EE55FF66AA77BB88DD99CC23 /* PromptHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptHistoryView.swift; sourceTree = "<group>"; };
+		AA77BB88CC99DD00EE11FF25 /* EnvironmentPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentPanelView.swift; sourceTree = "<group>"; };
+		DD11EE22FF33AA44BB55CC03 /* DMSans.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = DMSans.ttf; sourceTree = "<group>"; };
+		DD11EE22FF33AA44BB55CC04 /* DMSans-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DMSans-Italic.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DD11EE22FF33AA44BB55CC06 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DD11EE22FF33AA44BB55CC01 /* DMSans.ttf in Resources */,
+				DD11EE22FF33AA44BB55CC02 /* DMSans-Italic.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		17DD12EE31CBF2A1E25F2ADF /* Frameworks */ = {
@@ -139,11 +169,21 @@
 				07BB72D86A3E8F2B8AA2505B /* ClaudeTerm.entitlements */,
 				168AA3ECC3E8F1F1D7CC32B3 /* Info.plist */,
 				85CC8918ACEA4618E9FEA068 /* App */,
+				DD11EE22FF33AA44BB55CC05 /* Fonts */,
 				C9FB169E2450BB3025448316 /* Models */,
 				CD13052028EAA0BBC2D9CDAB /* Services */,
 				615767944D0350A01A78592F /* Views */,
 			);
 			path = ClaudeTerm;
+			sourceTree = "<group>";
+		};
+		DD11EE22FF33AA44BB55CC05 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				DD11EE22FF33AA44BB55CC03 /* DMSans.ttf */,
+				DD11EE22FF33AA44BB55CC04 /* DMSans-Italic.ttf */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 		615767944D0350A01A78592F /* Views */ = {
@@ -153,14 +193,18 @@
 				AA11BB22CC33DD44EE55FF14 /* AgentIndicatorView.swift */,
 				AA11BB22CC33DD44EE55FF13 /* AgentPanelView.swift */,
 				3C4D5E6F7A8B9C0D1E2F3A4B /* BacklogPanelView.swift */,
+				BB22CC33DD44EE55FF77AA20 /* BottomPanelView.swift */,
 				AA11BB22CC33DD44EE55FF0B /* ClaudeProjectView.swift */,
 				AA11BB22CC33DD44EE55FF0F /* CodeEditorView.swift */,
 				AA11BB22CC33DD44EE55FF10 /* EditorPanelView.swift */,
+				AA77BB88CC99DD00EE11FF25 /* EnvironmentPanelView.swift */,
 				AA11BB22CC33DD44EE55FF0E /* FileTreeView.swift */,
 				AA11BB22CC33DD44EE55FF04 /* GitGraphView.swift */,
 				AA11BB22CC33DD44EE55FF18 /* GitHubPanelView.swift */,
+				BB22CC33DD44EE55FF77AA19 /* KanbanBoardView.swift */,
 				36EE200703374B8DDFEDEBDF /* MainWindowView.swift */,
 				4442C48A25B6CD6F0B6BCFE5 /* PreferencesView.swift */,
+				EE55FF66AA77BB88DD99CC23 /* PromptHistoryView.swift */,
 				C6D44397D4AFD908D8754572 /* SplitContainerView.swift */,
 				5A6B7C8D9E0F1A2B3C4D5E6F /* Styles.swift */,
 				AA11BB22CC33DD44EE55FF02 /* SudoBypassOverlay.swift */,
@@ -231,6 +275,9 @@
 				AA11BB22CC33DD44EE55FF01 /* NotificationService.swift */,
 				AF6F8A4EFA18BEF8AD3FC7CB /* PTYManager.swift */,
 				A7CFD8668D1B2C9BB222ACF7 /* SessionRestorationService.swift */,
+				CC33DD44EE55FF66AA88BB21 /* ServerDiscoveryService.swift */,
+				DD44EE55FF66AA77CC99BB22 /* PromptHistoryService.swift */,
+				BF5E0001A1B2C3D4E5F60001 /* BacklogFileService.swift */,
 				D49BB22D5DEDDCCBC8A5BB95 /* ShellIntegrationService.swift */,
 				AA11BB22CC33DD44EE55FF0D /* SyntaxHighlighter.swift */,
 				96847A1EE77B02D811A685FD /* WorkspacePersistenceService.swift */,
@@ -273,6 +320,7 @@
 			buildPhases = (
 				79F2F96608990743DD593E62 /* Sources */,
 				17DD12EE31CBF2A1E25F2ADF /* Frameworks */,
+				DD11EE22FF33AA44BB55CC06 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -332,6 +380,7 @@
 				69AAE169E05F80B1480D9DBD /* PaneNode.swift in Sources */,
 				21AD8261197975936F658A35 /* PreferencesView.swift in Sources */,
 				858C2BC9F612CF3B58B1D758 /* SessionRestorationService.swift in Sources */,
+				BF5E0002A1B2C3D4E5F60002 /* BacklogFileService.swift in Sources */,
 				D43079465B6CDF8C9665E2B1 /* ShellIntegrationService.swift in Sources */,
 				AD6197BD68A143A59C3DA5FB /* SplitContainerView.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* Styles.swift in Sources */,
@@ -369,6 +418,12 @@
 				BB22CC33DD44EE55FF66AA16 /* GitHubService.swift in Sources */,
 				BB22CC33DD44EE55FF66AA17 /* GitHubPollingService.swift in Sources */,
 				BB22CC33DD44EE55FF66AA18 /* GitHubPanelView.swift in Sources */,
+				CC33DD44EE55FF66AA77BB19 /* KanbanBoardView.swift in Sources */,
+				CC33DD44EE55FF66AA77BB20 /* BottomPanelView.swift in Sources */,
+				DD44EE55FF66AA77BB88CC21 /* ServerDiscoveryService.swift in Sources */,
+				EE55FF66AA77BB88CC99DD22 /* PromptHistoryService.swift in Sources */,
+				FF66AA77BB88CC99DD00EE23 /* PromptHistoryView.swift in Sources */,
+				AA77BB88CC99DD00EE11FF24 /* EnvironmentPanelView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

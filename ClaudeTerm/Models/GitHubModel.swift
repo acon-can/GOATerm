@@ -8,53 +8,71 @@ final class GitHubState {
     var isAuthenticated: Bool = false
     var isLoading: Bool = false
     var lastError: String?
+    var currentRepo: String?
+    var localGitInfo: LocalGitInfo?
+
+    var filteredPRs: [PRInfo] {
+        guard let repo = currentRepo else { return myPRs }
+        return myPRs.filter { $0.repoName == repo }
+    }
+    var filteredReviewRequests: [PRInfo] {
+        guard let repo = currentRepo else { return reviewRequests }
+        return reviewRequests.filter { $0.repoName == repo }
+    }
+    var filteredIssues: [GitHubIssue] {
+        guard let repo = currentRepo else { return assignedIssues }
+        return assignedIssues.filter { $0.repoName == repo }
+    }
+}
+
+struct LocalGitInfo {
+    let branch: String
+    let trackingBranch: String?
+    let ahead: Int
+    let behind: Int
+    let stagedCount: Int
+    let modifiedCount: Int
+    let untrackedCount: Int
+    let conflictCount: Int
+    let stashCount: Int
+    let recentCommits: [GitCommitInfo]
+
+    var hasUncommittedChanges: Bool {
+        stagedCount + modifiedCount + untrackedCount + conflictCount > 0
+    }
+}
+
+struct GitCommitInfo: Identifiable {
+    let hash: String
+    let message: String
+    let author: String
+    let relativeDate: String
+    var id: String { hash }
+}
+
+struct SearchRepository: Codable {
+    let name: String
+    let nameWithOwner: String
 }
 
 struct PRInfo: Identifiable, Codable {
-    var id: Int { number }
     let number: Int
     let title: String
-    let headRefName: String
     let state: String
     let url: String
-    let ciStatus: CIStatus?
+    let repository: SearchRepository?
 
-    enum CodingKeys: String, CodingKey {
-        case number, title, headRefName, state, url
-        case ciStatus = "statusCheckRollup"
-    }
-}
-
-struct CIStatus: Codable {
-    let state: String?
-
-    var displayState: CIDisplayState {
-        switch state?.lowercased() {
-        case "success": return .success
-        case "failure", "error": return .failure
-        case "pending": return .pending
-        default: return .unknown
-        }
-    }
-}
-
-enum CIDisplayState {
-    case success, failure, pending, unknown
-
-    var colorName: String {
-        switch self {
-        case .success: return "green"
-        case .failure: return "red"
-        case .pending: return "yellow"
-        case .unknown: return "gray"
-        }
-    }
+    var id: String { url }
+    var repoName: String { repository?.nameWithOwner ?? "" }
 }
 
 struct GitHubIssue: Identifiable, Codable {
-    var id: Int { number }
     let number: Int
     let title: String
     let state: String
     let url: String
+    let repository: SearchRepository?
+
+    var id: String { url }
+    var repoName: String { repository?.nameWithOwner ?? "" }
 }

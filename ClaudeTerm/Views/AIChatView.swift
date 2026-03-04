@@ -6,20 +6,65 @@ struct AIChatView: View {
 
     @State private var includeBacklog = false
     @State private var errorMessage: String?
+    @State private var apiKeyInput: String = ""
+    @State private var showApiKeyField = false
+    @State private var hasApiKey: Bool = APIKeyManager.load() != nil
 
     var body: some View {
         VStack(spacing: 0) {
-            // Messages
-            if chatSession.messages.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 28))
+            // API Key setup prompt
+            if !hasApiKey {
+                VStack(spacing: 16) {
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 32))
                         .foregroundColor(.secondary)
-                    Text("Chat with Claude")
-                        .font(.caption)
+                    Text("Claude API Key Required")
+                        .font(PreferencesManager.uiFont(size: 14, weight: .semibold))
+                    Text("Enter your Anthropic API key to start chatting.")
+                        .font(PreferencesManager.uiFont(size: 12))
                         .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    if showApiKeyField {
+                        VStack(spacing: 8) {
+                            SecureField("sk-ant-...", text: $apiKeyInput)
+                                .textFieldStyle(.roundedBorder)
+                                .font(PreferencesManager.uiFont(size: 12))
+                                .frame(maxWidth: 300)
+
+                            HStack(spacing: 8) {
+                                Button("Cancel") {
+                                    showApiKeyField = false
+                                    apiKeyInput = ""
+                                }
+                                Button("Save") {
+                                    let key = apiKeyInput.trimmingCharacters(in: .whitespaces)
+                                    if !key.isEmpty, APIKeyManager.save(key: key) {
+                                        hasApiKey = true
+                                        apiKeyInput = ""
+                                        showApiKeyField = false
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(apiKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                            }
+                        }
+                    } else {
+                        Button("Set Up API Key") {
+                            showApiKeyField = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            // Messages
+            else if chatSession.messages.isEmpty {
+                Text("Chat with Claude")
+                    .font(PreferencesManager.uiFont(size: 12))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(12)
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -47,21 +92,11 @@ struct AIChatView: View {
                     .padding(.vertical, 4)
             }
 
-            Divider()
-
             // Input area
             HStack(spacing: 8) {
-                Button(action: { includeBacklog.toggle() }) {
-                    Image(systemName: includeBacklog ? "doc.fill" : "doc")
-                        .font(.system(size: 12))
-                        .foregroundColor(includeBacklog ? .accentColor : .secondary)
-                }
-                .buttonStyle(HoverButtonStyle())
-                .help(includeBacklog ? "Backlog context included" : "Include backlog as context")
-
-                TextField("Ask Claude...", text: $chatSession.pendingInput, axis: .vertical)
+                TextField("Message...", text: $chatSession.pendingInput, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 13))
+                    .font(PreferencesManager.uiFont(size: 13))
                     .lineLimit(1...5)
                     .onSubmit { sendMessage() }
 
@@ -73,7 +108,17 @@ struct AIChatView: View {
                 .buttonStyle(.plain)
                 .disabled(chatSession.pendingInput.trimmingCharacters(in: .whitespaces).isEmpty && !chatSession.isStreaming)
             }
-            .padding(8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(nsColor: .textBackgroundColor).opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                    )
+            )
+            .padding(6)
         }
     }
 
@@ -94,7 +139,7 @@ struct AIChatView: View {
         Task {
             do {
                 try await ClaudeAPIService.shared.sendMessage(
-                    messages: messages.dropLast().map { $0 },
+                    messages: messages,
                     systemPrompt: systemPrompt
                 ) { token in
                     DispatchQueue.main.async {
@@ -124,7 +169,7 @@ struct ChatBubbleView: View {
             if message.role == .user { Spacer(minLength: 40) }
 
             Text(message.content.isEmpty ? "..." : message.content)
-                .font(.system(size: 13))
+                .font(PreferencesManager.uiFont(size: 13))
                 .textSelection(.enabled)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)

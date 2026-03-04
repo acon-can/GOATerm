@@ -1,23 +1,23 @@
 import SwiftUI
 
-struct AgentIndicatorView: View {
-    let agentStore: AgentStore
+struct ServerIndicatorView: View {
+    let serverStore: ServerStore
 
     private var runningCount: Int {
-        agentStore.agents.filter { $0.status == .running }.count
+        serverStore.servers.filter { $0.status == .running }.count
     }
 
     private var hasErrors: Bool {
-        agentStore.agents.contains { $0.status == .error || $0.status == .crashed }
+        serverStore.servers.contains { $0.status == .error || $0.status == .crashed }
     }
 
     var body: some View {
-        if !agentStore.agents.isEmpty {
+        if !serverStore.servers.isEmpty {
             HStack(spacing: 4) {
                 Circle()
                     .fill(hasErrors ? Color.orange : (runningCount > 0 ? Color.green : Color.gray))
                     .frame(width: 6, height: 6)
-                Text("\(runningCount)/\(agentStore.agents.count)")
+                Text("\(runningCount)/\(serverStore.servers.count)")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
             }

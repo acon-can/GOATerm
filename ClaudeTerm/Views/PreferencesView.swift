@@ -30,13 +30,29 @@ final class PreferencesManager {
     var backlogFontSize: CGFloat {
         didSet { UserDefaults.standard.set(backlogFontSize, forKey: "backlogFontSize") }
     }
+    var defaultDirectory: String? {
+        didSet { UserDefaults.standard.set(defaultDirectory, forKey: "defaultDirectory") }
+    }
+
+    static func uiFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .custom("DM Sans", size: size).weight(weight)
+    }
 
     var backlogFont: Font {
-        .custom(fontName, size: backlogFontSize)
+        .custom("DM Sans", size: backlogFontSize)
     }
 
     var backlogTitleFont: Font {
-        .custom(fontName, size: backlogFontSize).weight(.semibold)
+        .custom("DM Sans", size: backlogFontSize)
+    }
+
+    /// Returns the default directory for new terminals, falling back to home.
+    var effectiveDefaultDirectory: String {
+        if let dir = defaultDirectory, !dir.isEmpty,
+           FileManager.default.fileExists(atPath: dir) {
+            return dir
+        }
+        return NSHomeDirectory()
     }
 
     private init() {
@@ -47,6 +63,7 @@ final class PreferencesManager {
         self.cursorBlink = defaults.object(forKey: "cursorBlink") as? Bool ?? true
         self.optionAsMeta = defaults.object(forKey: "optionAsMeta") as? Bool ?? true
         self.backlogFontSize = defaults.object(forKey: "backlogFontSize") as? CGFloat ?? 14.0
+        self.defaultDirectory = defaults.string(forKey: "defaultDirectory")
     }
 }
 
@@ -77,8 +94,50 @@ struct PreferencesView: View {
 struct GeneralPreferencesView: View {
     @Bindable var prefs: PreferencesManager
 
+    private var directoryDisplay: String {
+        guard let dir = prefs.defaultDirectory, !dir.isEmpty else {
+            return "Home (~)"
+        }
+        let home = NSHomeDirectory()
+        if dir == home { return "Home (~)" }
+        if dir.hasPrefix(home + "/") {
+            return "~/" + String(dir.dropFirst(home.count + 1))
+        }
+        return dir
+    }
+
     var body: some View {
         Form {
+            Section("Startup") {
+                HStack {
+                    Text("Default directory:")
+                    Spacer()
+                    Text(directoryDisplay)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Button("Choose...") {
+                        let panel = NSOpenPanel()
+                        panel.canChooseFiles = false
+                        panel.canChooseDirectories = true
+                        panel.allowsMultipleSelection = false
+                        panel.message = "Choose the default directory for new terminals"
+                        if let dir = prefs.defaultDirectory, !dir.isEmpty {
+                            panel.directoryURL = URL(fileURLWithPath: dir)
+                        }
+                        if panel.runModal() == .OK, let url = panel.url {
+                            prefs.defaultDirectory = url.path
+                        }
+                    }
+                    if prefs.defaultDirectory != nil {
+                        Button("Reset") {
+                            prefs.defaultDirectory = nil
+                        }
+                    }
+                }
+                .help("New terminal tabs will start in this directory")
+            }
+
             Section("Shell") {
                 Toggle("Option key as Meta", isOn: $prefs.optionAsMeta)
                     .help("Use Option key as Meta key for terminal shortcuts")
@@ -110,35 +169,33 @@ struct APIPreferencesView: View {
     var body: some View {
         Form {
             Section("Anthropic API") {
-                SecureField("API Key", text: $apiKey)
+                SecureField(hasKey ? "Key stored in Keychain" : "API Key", text: $apiKey)
                     .textFieldStyle(.roundedBorder)
+                    .disabled(hasKey)
 
                 HStack {
-                    Button("Save") {
-                        if APIKeyManager.save(key: apiKey) {
-                            hasKey = true
-                            showSaved = true
-                            apiKey = ""
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { showSaved = false }
-                        }
-                    }
-                    .disabled(apiKey.isEmpty)
-
                     if hasKey {
                         Button("Remove", role: .destructive) {
                             APIKeyManager.delete()
                             hasKey = false
+                            apiKey = ""
                         }
+                    } else {
+                        Button("Save") {
+                            if APIKeyManager.save(key: apiKey) {
+                                hasKey = true
+                                showSaved = true
+                                apiKey = ""
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { showSaved = false }
+                            }
+                        }
+                        .disabled(apiKey.isEmpty)
                     }
 
                     if showSaved {
                         Text("Saved")
                             .font(.caption)
                             .foregroundColor(.green)
-                    } else if hasKey {
-                        Text("Key stored in Keychain")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
                     }
                 }
             }

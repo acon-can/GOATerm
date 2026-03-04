@@ -1,0 +1,115 @@
+import SwiftUI
+import AppKit
+
+struct PromptHistoryView: View {
+    let directory: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var entries: [PromptEntry] = []
+
+    private let dateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "MMM d, HH:mm"
+        return df
+    }()
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Prompt History")
+                    .font(.system(size: 13, weight: .semibold))
+
+                Spacer()
+
+                Button(action: {
+                    let text = PromptHistoryService.shared.copyAllText(directory: directory)
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 10))
+                        Text("Copy All")
+                            .font(.system(size: 11))
+                    }
+                    .foregroundColor(.secondary)
+                }
+                .buttonStyle(HoverButtonStyle())
+                .disabled(entries.isEmpty)
+
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(HoverButtonStyle())
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            Divider()
+
+            // Content
+            if entries.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 28))
+                        .foregroundColor(.secondary)
+                    Text("No prompts recorded yet")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(entries) { entry in
+                            PromptRowView(entry: entry, dateFormatter: dateFormatter)
+                        }
+                    }
+                    .padding(8)
+                }
+            }
+        }
+        .frame(width: 480, height: 400)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear {
+            entries = PromptHistoryService.shared.loadHistory(directory: directory)
+        }
+    }
+}
+
+struct PromptRowView: View {
+    let entry: PromptEntry
+    let dateFormatter: DateFormatter
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.prompt)
+                    .font(.system(size: 12))
+                    .lineLimit(nil)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text(dateFormatter.string(from: entry.timestamp))
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+            }
+
+            Button(action: {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(entry.prompt, forType: .string)
+            }) {
+                Image(systemName: "doc.on.doc")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(HoverButtonStyle())
+            .help("Copy prompt")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .hoverReveal()
+    }
+}
