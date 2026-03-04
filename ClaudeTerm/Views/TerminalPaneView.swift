@@ -48,6 +48,15 @@ struct TerminalPaneView: NSViewRepresentable {
         terminalView.applyClaudeTermTheme()
         terminalView.optionAsMetaKey = prefs.optionAsMeta
 
+        // Hide the always-visible legacy scroller
+        DispatchQueue.main.async {
+            for subview in terminalView.subviews {
+                if let scroller = subview as? NSScroller {
+                    scroller.scrollerStyle = .overlay
+                }
+            }
+        }
+
         // Set delegate
         terminalView.processDelegate = context.coordinator
 

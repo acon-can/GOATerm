@@ -135,37 +135,32 @@ extension EnvironmentValues {
 }
 
 /// Attach to a row container to track hover and propagate via environment.
-/// Uses a 300ms delay before hiding so the copy button stays reachable.
 struct HoverRevealModifier: ViewModifier {
     @State private var isHovered = false
-    @State private var hideTask: DispatchWorkItem?
 
     func body(content: Content) -> some View {
         content
             .environment(\.isRowHovered, isHovered)
             .onHover { hovering in
-                hideTask?.cancel()
-                if hovering {
-                    withAnimation(.easeInOut(duration: 0.15)) { isHovered = true }
-                } else {
-                    let task = DispatchWorkItem {
-                        withAnimation(.easeInOut(duration: 0.15)) { isHovered = false }
-                    }
-                    hideTask = task
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
-                }
+                withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
             }
     }
 }
 
-/// Makes a view visible only when its parent row is hovered.
+/// Makes a view visible only when its parent row is hovered, or the element itself is hovered.
+/// Uses contentShape to keep the hit target active even when visually hidden.
 struct VisibleOnRowHoverModifier: ViewModifier {
     @Environment(\.isRowHovered) private var isRowHovered
+    @State private var isSelfHovered = false
+
+    private var isVisible: Bool { isRowHovered || isSelfHovered }
 
     func body(content: Content) -> some View {
         content
-            .opacity(isRowHovered ? 1 : 0)
-            .animation(.easeInOut(duration: 0.15), value: isRowHovered)
+            .opacity(isVisible ? 1 : 0)
+            .contentShape(Rectangle())
+            .animation(.easeInOut(duration: 0.15), value: isVisible)
+            .onHover { hovering in isSelfHovered = hovering }
     }
 }
 

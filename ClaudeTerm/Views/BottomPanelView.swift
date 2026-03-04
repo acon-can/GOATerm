@@ -206,6 +206,9 @@ struct BottomPanelView: View {
             case .chat:
                 AIChatView(
                     chatSession: tab.chatSession,
+                    terminalSession: tab.focusedSession,
+                    gitInfo: windowState.githubState.localGitInfo,
+                    servers: tab.serverStore.servers,
                     backlogContext: windowState.activeBacklog.copyAllText
                 )
             case .github:

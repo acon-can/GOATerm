@@ -4,19 +4,27 @@ import AppKit
 // MARK: - Window Configurator
 
 class WindowConfiguratorView: NSView {
+    private var layoutWorkItem: DispatchWorkItem?
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         guard let window = window else { return }
         window.isMovableByWindowBackground = true
         window.title = ""
         window.titlebarAppearsTransparent = true
-        // Delay to ensure buttons are laid out
         DispatchQueue.main.async { self.centerTrafficLights() }
     }
 
     override func layout() {
         super.layout()
-        centerTrafficLights()
+        // Debounce: defer positioning until after the layout pass settles,
+        // so titlebar geometry is finalized.
+        layoutWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.centerTrafficLights()
+        }
+        layoutWorkItem = work
+        DispatchQueue.main.async(execute: work)
     }
 
     private func centerTrafficLights() {

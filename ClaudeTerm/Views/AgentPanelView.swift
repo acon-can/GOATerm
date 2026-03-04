@@ -79,7 +79,7 @@ struct ServerPanelView: View {
 
     @ViewBuilder
     private var emptyStatePanel: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
             switch serverStore.discoveryStatus {
             case .idle, .scanning:
                 ProgressView()
@@ -89,44 +89,28 @@ struct ServerPanelView: View {
                     .foregroundColor(.secondary)
 
             case .noReadme:
-                Image(systemName: "doc.text.magnifyingglass")
-                    .font(.system(size: 24))
-                    .foregroundColor(.secondary)
-                Text("Add a README.md with\nserver start commands\nto discover them here")
+                Text("Add a README.md with server start commands to discover them here")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
 
             case .noServers:
-                Image(systemName: "server.rack")
-                    .font(.system(size: 24))
-                    .foregroundColor(.secondary)
-                Text("No server commands\nfound in README.md")
+                Text("No server commands found in README.md")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
 
             case .error(let msg):
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 24))
-                    .foregroundColor(.orange)
                 Text(msg)
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 8)
 
             case .discovered:
-                // Shouldn't reach here if hasServers is false, but just in case
-                Image(systemName: "server.rack")
-                    .font(.system(size: 24))
-                    .foregroundColor(.secondary)
                 Text("No servers available")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     // MARK: - Log Viewer

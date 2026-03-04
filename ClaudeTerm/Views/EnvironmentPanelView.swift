@@ -69,15 +69,11 @@ struct EnvironmentPanelView: View {
     private var mainPanel: some View {
         if envFiles.isEmpty {
             // Empty state in main area
-            VStack(spacing: 8) {
-                Image(systemName: "doc.badge.gearshape")
-                    .font(.system(size: 24))
-                    .foregroundColor(.secondary)
-                Text("No .env files found")
-                    .font(PreferencesManager.uiFont(size: 12))
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Text("No .env files found")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         } else {
             editorPanel
         }

@@ -11,6 +11,11 @@ struct KanbanBoardView: View {
 
     private var store: BacklogStore { windowState.activeBacklog }
 
+    private var activeColor: Color {
+        let tabColor = windowState.activeTab?.color ?? .default
+        return tabColor == .default ? .accentColor : tabColor.swiftUIColor
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Category switcher
@@ -28,15 +33,15 @@ struct KanbanBoardView: View {
                                 if count > 0 {
                                     Text("\(count)")
                                         .font(PreferencesManager.uiFont(size: 9))
+                                        .foregroundColor(.secondary)
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 1)
-                                        .background(Capsule().fill((active ? Color.accentColor : Color.gray).opacity(0.2)))
                                 }
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
                         }
-                        .buttonStyle(PanelTabButtonStyle(isActive: active))
+                        .buttonStyle(PanelTabButtonStyle(isActive: active, activeColor: activeColor))
                     }
                 }
                 Spacer()
@@ -336,12 +341,6 @@ struct KanbanColumnView: View {
             }
             .toggleStyle(.checkbox)
             .controlSize(.small)
-
-            if hideCompleted && hiddenCount > 0 {
-                Text("(\(hiddenCount) hidden)")
-                    .font(PreferencesManager.uiFont(size: 11))
-                    .foregroundColor(.secondary)
-            }
 
             Spacer()
 
