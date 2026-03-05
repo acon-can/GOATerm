@@ -73,6 +73,7 @@ final class TabModel: Identifiable {
     var editorState: EditorState = EditorState()
     var serverStore: ServerStore = ServerStore()
     var envEditorState: EnvironmentEditorState = EnvironmentEditorState()
+    var settingsEditorState: EnvironmentEditorState = EnvironmentEditorState()
 
     init(id: UUID = UUID(), session: TerminalSession? = nil) {
         self.id = id
@@ -102,7 +103,7 @@ final class TabModel: Identifiable {
     }
 
     func splitPane(sessionId: UUID, orientation: SplitOrientation) {
-        let newSession = TerminalSession()
+        let newSession = TerminalSession(color: .nextRotatingColor())
         if let existingSession = allSessions.first(where: { $0.id == sessionId }) {
             newSession.currentDirectory = existingSession.currentDirectory
         }

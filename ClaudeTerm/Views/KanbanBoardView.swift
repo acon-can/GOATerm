@@ -6,9 +6,6 @@ import AppKit
 struct KanbanBoardView: View {
     @Bindable var windowState: WindowState
 
-    @State private var isDraggingResize = false
-    @State private var isHoveringResize = false
-
     private var store: BacklogStore { windowState.activeBacklog }
 
     private var activeColor: Color {
@@ -83,36 +80,6 @@ struct KanbanBoardView: View {
                 .fill(Color(nsColor: .controlBackgroundColor))
                 .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
         )
-        .overlay(alignment: .leading) {
-            // Invisible resize handle on leading edge
-            Rectangle()
-                .fill(Color.clear)
-                .frame(width: 4)
-                .contentShape(Rectangle())
-                .onHover { hovering in
-                    isHoveringResize = hovering
-                    if hovering {
-                        NSCursor.resizeLeftRight.push()
-                    } else {
-                        NSCursor.pop()
-                    }
-                }
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            isDraggingResize = true
-                            guard let window = NSApp.keyWindow else { return }
-                            let totalWidth = window.frame.width
-                            let delta = -value.translation.width / totalWidth
-                            let newRatio = windowState.backlogWidthRatio + delta
-                            windowState.backlogWidthRatio = min(max(newRatio, 0.15), 0.50)
-                        }
-                        .onEnded { _ in
-                            isDraggingResize = false
-                        }
-                )
-        }
-        .padding(.leading, 6)
         .padding(.bottom, 6)
     }
 }
@@ -282,27 +249,51 @@ struct KanbanColumnView: View {
             Text("No prompts yet")
                 .font(PreferencesManager.uiFont(size: 12))
                 .foregroundColor(.secondary)
+                .padding(.leading, 6)
             Text("Items are saved to **backlog.goat.md**\nin your project directory")
                 .font(PreferencesManager.uiFont(size: 12))
                 .foregroundColor(.secondary)
+                .padding(.leading, 6)
+            addPromptButton
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(12)
+    }
+
+    // MARK: - Add Prompt Button
+
+    @ViewBuilder
+    private var addPromptButton: some View {
+        HStack(alignment: .top, spacing: 4) {
+            // Plus icon — same wrapper as status icon button
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     let newId = board.addBullet()
                     focusedField = .bulletText(newId)
                 }
             }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "plus")
-                        .font(PreferencesManager.uiFont(size: prefs.backlogFontSize - 2))
-                    Text("Add prompt")
-                        .font(PreferencesManager.uiFont(size: prefs.backlogFontSize - 2))
-                }
-                .foregroundColor(.accentColor)
+                Image(systemName: "plus")
+                    .font(prefs.backlogFont)
+                    .foregroundColor(.accentColor)
             }
-            .buttonStyle(AddButtonStyle())
+            .buttonStyle(HoverButtonStyle())
+
+            // Placeholder text — same position as TextField in BulletRowView
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    let newId = board.addBullet()
+                    focusedField = .bulletText(newId)
+                }
+            }) {
+                Text("Add prompt")
+                    .font(prefs.backlogFont)
+                    .foregroundColor(.accentColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(12)
+        .padding(.vertical, 1)
+        .padding(.leading, 6)
     }
 
     // MARK: - Bullet List
@@ -340,23 +331,7 @@ struct KanbanColumnView: View {
                 }
 
                 // Add prompt button
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        let newId = board.addBullet()
-                        focusedField = .bulletText(newId)
-                    }
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus")
-                            .font(PreferencesManager.uiFont(size: prefs.backlogFontSize - 2))
-                        Text("Add prompt")
-                            .font(PreferencesManager.uiFont(size: prefs.backlogFontSize - 2))
-                    }
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-                }
-                .buttonStyle(AddButtonStyle())
+                addPromptButton
             }
             .padding(8)
         }

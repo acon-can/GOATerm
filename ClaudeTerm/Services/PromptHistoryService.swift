@@ -14,7 +14,7 @@ struct PromptEntry: Identifiable {
 
 final class PromptHistoryService {
     static let shared = PromptHistoryService()
-    private let fileName = "history.goat.md"
+    private let fileName = "chathistory.goat.md"
 
     private let dateFormatter: DateFormatter = {
         let df = DateFormatter()
@@ -48,6 +48,36 @@ final class PromptHistoryService {
             if let data = content.data(using: .utf8) {
                 FileManager.default.createFile(atPath: filePath, contents: data)
             }
+        }
+
+        ensureGitignore(in: directory)
+    }
+
+    // MARK: - Gitignore
+
+    private func ensureGitignore(in directory: String) {
+        let gitDir = (directory as NSString).appendingPathComponent(".git")
+        guard FileManager.default.fileExists(atPath: gitDir) else { return }
+
+        let gitignorePath = (directory as NSString).appendingPathComponent(".gitignore")
+
+        var lines: [String] = []
+        if let data = FileManager.default.contents(atPath: gitignorePath),
+           let existing = String(data: data, encoding: .utf8) {
+            lines = existing.components(separatedBy: .newlines)
+        }
+
+        let alreadyIgnored = lines.contains { $0.trimmingCharacters(in: .whitespaces) == fileName }
+        guard !alreadyIgnored else { return }
+
+        if let last = lines.last, last.isEmpty {
+            lines.insert(fileName, at: lines.count - 1)
+        } else {
+            lines.append(fileName)
+        }
+        let result = lines.joined(separator: "\n")
+        if let data = result.data(using: .utf8) {
+            try? data.write(to: URL(fileURLWithPath: gitignorePath), options: .atomic)
         }
     }
 

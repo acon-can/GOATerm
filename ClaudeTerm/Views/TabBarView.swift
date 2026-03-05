@@ -18,7 +18,7 @@ struct TabBarView: View {
 
             // Tab scroll area
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
+                HStack(spacing: 6) {
                     ForEach(windowState.tabs) { tab in
                         TabItemView(
                             tab: tab,

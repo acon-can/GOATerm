@@ -63,6 +63,7 @@
 		EE55FF66AA77BB88CC99DD22 /* PromptHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD44EE55FF66AA77CC99BB22 /* PromptHistoryService.swift */; };
 		FF66AA77BB88CC99DD00EE23 /* PromptHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE55FF66AA77BB88DD99CC23 /* PromptHistoryView.swift */; };
 		AA77BB88CC99DD00EE11FF24 /* EnvironmentPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA77BB88CC99DD00EE11FF25 /* EnvironmentPanelView.swift */; };
+		AA77BB88CC99DD00EE11FF30 /* SettingsPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA77BB88CC99DD00EE11FF31 /* SettingsPanelView.swift */; };
 		DD11EE22FF33AA44BB55CC01 /* DMSans.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF33AA44BB55CC03 /* DMSans.ttf */; };
 		DD11EE22FF33AA44BB55CC02 /* DMSans-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF33AA44BB55CC04 /* DMSans-Italic.ttf */; };
 		FF77AA88BB99CC00DD11EE26 /* ClaudeCodeHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF77AA88BB99CC00DD11EE25 /* ClaudeCodeHistoryService.swift */; };
@@ -138,6 +139,7 @@
 		DD44EE55FF66AA77CC99BB22 /* PromptHistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptHistoryService.swift; sourceTree = "<group>"; };
 		EE55FF66AA77BB88DD99CC23 /* PromptHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptHistoryView.swift; sourceTree = "<group>"; };
 		AA77BB88CC99DD00EE11FF25 /* EnvironmentPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentPanelView.swift; sourceTree = "<group>"; };
+		AA77BB88CC99DD00EE11FF31 /* SettingsPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPanelView.swift; sourceTree = "<group>"; };
 		DD11EE22FF33AA44BB55CC03 /* DMSans.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = DMSans.ttf; sourceTree = "<group>"; };
 		DD11EE22FF33AA44BB55CC04 /* DMSans-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DMSans-Italic.ttf"; sourceTree = "<group>"; };
 		FF77AA88BB99CC00DD11EE25 /* ClaudeCodeHistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeHistoryService.swift; sourceTree = "<group>"; };
@@ -202,6 +204,7 @@
 				AA11BB22CC33DD44EE55FF0F /* CodeEditorView.swift */,
 				AA11BB22CC33DD44EE55FF10 /* EditorPanelView.swift */,
 				AA77BB88CC99DD00EE11FF25 /* EnvironmentPanelView.swift */,
+				AA77BB88CC99DD00EE11FF31 /* SettingsPanelView.swift */,
 				AA11BB22CC33DD44EE55FF0E /* FileTreeView.swift */,
 				AA11BB22CC33DD44EE55FF04 /* GitGraphView.swift */,
 				AA11BB22CC33DD44EE55FF18 /* GitHubPanelView.swift */,
@@ -432,6 +435,7 @@
 				FF77AA88BB99CC00DD11EE26 /* ClaudeCodeHistoryService.swift in Sources */,
 				FF66AA77BB88CC99DD00EE23 /* PromptHistoryView.swift in Sources */,
 				AA77BB88CC99DD00EE11FF24 /* EnvironmentPanelView.swift in Sources */,
+				AA77BB88CC99DD00EE11FF30 /* SettingsPanelView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

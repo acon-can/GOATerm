@@ -36,6 +36,9 @@ final class PreferencesManager {
     var gitignoreBacklog: Bool {
         didSet { UserDefaults.standard.set(gitignoreBacklog, forKey: "gitignoreBacklog") }
     }
+    var logChatHistory: Bool {
+        didSet { UserDefaults.standard.set(logChatHistory, forKey: "logChatHistory") }
+    }
 
     // Chat context toggles
     var contextFileTree: Bool {
@@ -84,6 +87,38 @@ final class PreferencesManager {
         return NSHomeDirectory()
     }
 
+    func resetAllDefaults() {
+        let keys = [
+            "fontName", "fontSize", "scrollbackLines", "cursorBlink",
+            "optionAsMeta", "backlogFontSize", "defaultDirectory", "gitignoreBacklog",
+            "logChatHistory",
+            "contextFileTree", "contextGitStatus", "contextReadme", "contextClaudeMd",
+            "contextManifest", "contextEnvVars", "contextServers", "contextBacklog",
+            "panelBacklogVisible", "panelBacklogWidthRatio",
+            "panelBottomExpanded", "panelBottomHeightRatio", "panelBottomSavedRatio"
+        ]
+        for key in keys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        fontName = Self.defaultFontName
+        fontSize = 14.0
+        scrollbackLines = 10000
+        cursorBlink = true
+        optionAsMeta = true
+        backlogFontSize = 14.0
+        defaultDirectory = nil
+        gitignoreBacklog = true
+        contextFileTree = true
+        contextGitStatus = true
+        contextReadme = true
+        contextClaudeMd = true
+        contextManifest = true
+        contextEnvVars = true
+        contextServers = true
+        contextBacklog = true
+        logChatHistory = true
+    }
+
     private init() {
         let defaults = UserDefaults.standard
         self.fontName = defaults.string(forKey: "fontName") ?? Self.defaultFontName
@@ -94,6 +129,7 @@ final class PreferencesManager {
         self.backlogFontSize = defaults.object(forKey: "backlogFontSize") as? CGFloat ?? 14.0
         self.defaultDirectory = defaults.string(forKey: "defaultDirectory")
         self.gitignoreBacklog = defaults.object(forKey: "gitignoreBacklog") as? Bool ?? true
+        self.logChatHistory = defaults.object(forKey: "logChatHistory") as? Bool ?? true
         self.contextFileTree = defaults.object(forKey: "contextFileTree") as? Bool ?? true
         self.contextGitStatus = defaults.object(forKey: "contextGitStatus") as? Bool ?? true
         self.contextReadme = defaults.object(forKey: "contextReadme") as? Bool ?? true
@@ -129,8 +165,13 @@ struct PreferencesView: View {
                 .tabItem {
                     Label("API", systemImage: "key")
                 }
+
+            AboutPreferencesView(prefs: prefs)
+                .tabItem {
+                    Label("About", systemImage: "info.circle")
+                }
         }
-        .frame(width: 450, height: 360)
+        .frame(width: 450, height: 480)
     }
 }
 
@@ -152,56 +193,87 @@ struct GeneralPreferencesView: View {
     var body: some View {
         Form {
             Section("Startup") {
-                HStack {
-                    Text("Default directory:")
-                    Spacer()
-                    Text(directoryDisplay)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Default directory:")
+                        Spacer()
+                        Text(directoryDisplay)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Button("Choose...") {
+                            let panel = NSOpenPanel()
+                            panel.canChooseFiles = false
+                            panel.canChooseDirectories = true
+                            panel.allowsMultipleSelection = false
+                            panel.message = "Choose the default directory for new terminals"
+                            if let dir = prefs.defaultDirectory, !dir.isEmpty {
+                                panel.directoryURL = URL(fileURLWithPath: dir)
+                            }
+                            if panel.runModal() == .OK, let url = panel.url {
+                                prefs.defaultDirectory = url.path
+                            }
+                        }
+                        if prefs.defaultDirectory != nil {
+                            Button("Reset") {
+                                prefs.defaultDirectory = nil
+                            }
+                        }
+                    }
+                    Text("New terminal tabs will open in this directory by default.")
+                        .font(.caption)
                         .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Button("Choose...") {
-                        let panel = NSOpenPanel()
-                        panel.canChooseFiles = false
-                        panel.canChooseDirectories = true
-                        panel.allowsMultipleSelection = false
-                        panel.message = "Choose the default directory for new terminals"
-                        if let dir = prefs.defaultDirectory, !dir.isEmpty {
-                            panel.directoryURL = URL(fileURLWithPath: dir)
-                        }
-                        if panel.runModal() == .OK, let url = panel.url {
-                            prefs.defaultDirectory = url.path
-                        }
-                    }
-                    if prefs.defaultDirectory != nil {
-                        Button("Reset") {
-                            prefs.defaultDirectory = nil
-                        }
-                    }
                 }
-                .help("New terminal tabs will start in this directory")
             }
 
             Section("Shell") {
-                Toggle("Option key as Meta", isOn: $prefs.optionAsMeta)
-                    .help("Use Option key as Meta key for terminal shortcuts")
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Option key as Meta", isOn: $prefs.optionAsMeta)
+                    Text("Sends Option key as Meta for programs like emacs, nano, and zsh keybindings.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             Section("Scrollback") {
-                Stepper(
-                    "Scrollback lines: \(prefs.scrollbackLines)",
-                    value: $prefs.scrollbackLines,
-                    in: 1000...100000,
-                    step: 1000
-                )
+                VStack(alignment: .leading, spacing: 4) {
+                    Stepper(
+                        "Scrollback lines: \(prefs.scrollbackLines)",
+                        value: $prefs.scrollbackLines,
+                        in: 1000...100000,
+                        step: 1000
+                    )
+                    Text("Number of lines of terminal output kept in memory for scrolling back.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             Section("Cursor") {
-                Toggle("Cursor blink", isOn: $prefs.cursorBlink)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Cursor blink", isOn: $prefs.cursorBlink)
+                    Text("Makes the terminal cursor blink to help locate it on screen.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Section("Chat") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Log chat history", isOn: $prefs.logChatHistory)
+                    Text("Saves chat prompts to chathistory.goat.md in your project directory for later review. This file is always added to .gitignore automatically.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             Section("Backlog") {
-                Toggle("Add backlog to .gitignore", isOn: $prefs.gitignoreBacklog)
-                    .help("When enabled, backlog.goat.md is added to .gitignore so it stays local. Disable to sync it with Git.")
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Add backlog to .gitignore", isOn: $prefs.gitignoreBacklog)
+                    Text("Keeps backlog.goat.md out of version control so it stays local to your machine.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .formStyle(.grouped)
@@ -216,10 +288,15 @@ struct APIPreferencesView: View {
 
     var body: some View {
         Form {
-            Section("Anthropic API") {
-                SecureField(hasKey ? "Key stored in Keychain" : "API Key", text: $apiKey)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(hasKey)
+            Section {
+                if hasKey {
+                    TextField("", text: .constant(String(repeating: "\u{2022}", count: 24)))
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(true)
+                } else {
+                    SecureField("API Key", text: $apiKey)
+                        .textFieldStyle(.roundedBorder)
+                }
 
                 HStack {
                     if hasKey {
@@ -246,6 +323,12 @@ struct APIPreferencesView: View {
                             .foregroundColor(.green)
                     }
                 }
+            } header: {
+                Text("Anthropic API")
+            } footer: {
+                Text("Your API key is stored securely in the macOS Keychain and used to power the Chat panel.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -258,23 +341,21 @@ struct ChatContextPreferencesView: View {
 
     var body: some View {
         Form {
-            Section("Context Sources") {
+            Section {
                 Toggle("File Tree", isOn: $prefs.contextFileTree)
-                    .help("Include project file tree in chat context")
                 Toggle("Git Status", isOn: $prefs.contextGitStatus)
-                    .help("Include git branch, staged files, and recent commits")
                 Toggle("README.md", isOn: $prefs.contextReadme)
-                    .help("Include project README contents")
                 Toggle("CLAUDE.md", isOn: $prefs.contextClaudeMd)
-                    .help("Include CLAUDE.md project instructions")
                 Toggle("Project Manifest", isOn: $prefs.contextManifest)
-                    .help("Include package.json, Package.swift, etc.")
-                Toggle("Environment Variables", isOn: $prefs.contextEnvVars)
-                    .help("Include .env variable names (values hidden)")
+                Toggle("Environment Variables (names only, values are never shared)", isOn: $prefs.contextEnvVars)
                 Toggle("Dev Servers", isOn: $prefs.contextServers)
-                    .help("Include running dev server status")
                 Toggle("Backlog", isOn: $prefs.contextBacklog)
-                    .help("Include backlog prompts in chat context")
+            } header: {
+                Text("Context Sources")
+            } footer: {
+                Text("Each toggle controls whether that source is included in the system prompt sent to Claude when you chat. More context gives better answers but uses more tokens.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -288,20 +369,82 @@ struct AppearancePreferencesView: View {
     var body: some View {
         Form {
             Section("Font") {
-                TextField("Font name", text: $prefs.fontName)
-                    .textFieldStyle(.roundedBorder)
-                    .help("e.g. Maple Mono, JetBrains Mono, SF Mono, Menlo")
-
-                Slider(value: $prefs.fontSize, in: 9...24, step: 1) {
-                    Text("Terminal size: \(Int(prefs.fontSize))pt")
+                VStack(alignment: .leading, spacing: 4) {
+                    TextField("Font name", text: $prefs.fontName)
+                        .textFieldStyle(.roundedBorder)
+                    Text("The monospace font used in the terminal (e.g. Maple Mono, JetBrains Mono, SF Mono).")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
 
-                Slider(value: $prefs.backlogFontSize, in: 9...24, step: 1) {
-                    Text("Backlog size: \(Int(prefs.backlogFontSize))pt")
+                VStack(alignment: .leading, spacing: 4) {
+                    Slider(value: $prefs.fontSize, in: 9...24, step: 1) {
+                        Text("Terminal size: \(Int(prefs.fontSize))pt")
+                    }
+                    Text("Controls the font size of text displayed in the terminal.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Slider(value: $prefs.backlogFontSize, in: 9...24, step: 1) {
+                        Text("Backlog size: \(Int(prefs.backlogFontSize))pt")
+                    }
+                    Text("Controls the font size of prompts and text in the backlog panel.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
         }
         .formStyle(.grouped)
         .padding()
+    }
+}
+
+struct AboutPreferencesView: View {
+    @Bindable var prefs: PreferencesManager
+    @State private var showResetConfirmation = false
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            Image(systemName: "terminal")
+                .font(.system(size: 40))
+                .foregroundColor(.accentColor)
+
+            Text("GOAT Terminal")
+                .font(.system(size: 18, weight: .bold))
+
+            Text("Version 0.5 Beta")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+
+            Text("by Alex Conconi")
+                .font(.system(size: 13))
+
+            Text("Copyright \u{00A9} 2026 Alex Conconi")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+
+            Spacer()
+
+            Divider()
+
+            Button(action: { showResetConfirmation = true }) {
+                Text("Reset All Defaults")
+                    .font(.system(size: 12))
+            }
+            .alert("Reset All Defaults?", isPresented: $showResetConfirmation) {
+                Button("Reset", role: .destructive) {
+                    prefs.resetAllDefaults()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will restore all preferences to their default values. This cannot be undone.")
+            }
+            .padding(.bottom, 16)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

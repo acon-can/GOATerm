@@ -63,6 +63,7 @@ struct TerminalPaneView: NSViewRepresentable {
         // Register OSC handlers for shell integration
         context.coordinator.registerOSCHandlers(on: terminalView)
 
+
         // Prepare environment and start shell
         let shellEnv = ShellIntegrationService.shared.prepareEnvironment(
             workingDirectory: session.currentDirectory

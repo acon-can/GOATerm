@@ -45,15 +45,18 @@ enum IslandLayout {
 // tab bar changes, etc.) rather than relying on our own view's layout cycle.
 
 class WindowConfiguratorView: NSView {
-    private var titlebarObserver: NSObjectProtocol?
+    private var observers: [NSObjectProtocol] = []
     private var isPositioning = false
+    private var positionTimer: Timer?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
 
-        // Clean up observer when removed from window
+        // Clean up when removed from window
         guard let window = window else {
-            removeTitlebarObserver()
+            removeObservers()
+            positionTimer?.invalidate()
+            positionTimer = nil
             return
         }
 
@@ -61,49 +64,71 @@ class WindowConfiguratorView: NSView {
         window.title = ""
         window.titlebarAppearsTransparent = true
 
-        // Defer initial setup to after the first layout pass, so titlebar
-        // geometry is finalized and button.superview is available.
+        // Defer initial setup to after the first layout pass
         DispatchQueue.main.async { [weak self] in
             self?.centerTrafficLights()
-            self?.observeTitlebar()
+            self?.setupObservers()
         }
     }
 
-    /// Watch the titlebar view for frame changes. macOS repositions the
-    /// traffic-light buttons during its own layout; this lets us fix them
-    /// immediately afterward, every time.
-    private func observeTitlebar() {
-        removeTitlebarObserver()
+    /// Watch multiple sources that can cause macOS to reset traffic-light positions.
+    private func setupObservers() {
+        removeObservers()
         guard let window = window,
               let button = window.standardWindowButton(.closeButton),
               let titlebarView = button.superview else { return }
 
+        // Titlebar frame changes
         titlebarView.postsFrameChangedNotifications = true
-        titlebarObserver = NotificationCenter.default.addObserver(
+        observers.append(NotificationCenter.default.addObserver(
             forName: NSView.frameDidChangeNotification,
             object: titlebarView,
             queue: .main
         ) { [weak self] _ in
             self?.centerTrafficLights()
+        })
+
+        // Window resize
+        observers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            self?.centerTrafficLights()
+        })
+
+        // Window became key (e.g. after sheet dismissal)
+        observers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            self?.centerTrafficLights()
+        })
+
+        // Polling timer — catches cases where macOS resets button positions
+        // during its own layout without posting any notification.
+        positionTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            self?.centerTrafficLights()
         }
     }
 
-    private func removeTitlebarObserver() {
-        if let observer = titlebarObserver {
+    private func removeObservers() {
+        for observer in observers {
             NotificationCenter.default.removeObserver(observer)
-            titlebarObserver = nil
         }
+        observers.removeAll()
+        positionTimer?.invalidate()
+        positionTimer = nil
     }
 
-    /// Fallback: also reposition on our own layout, in case the titlebar
-    /// observer misses an edge case (e.g. first appearance).
     override func layout() {
         super.layout()
         centerTrafficLights()
     }
 
     deinit {
-        removeTitlebarObserver()
+        removeObservers()
     }
 
     private func centerTrafficLights() {
@@ -184,8 +209,19 @@ struct MainWindowView: View {
                                 .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
                         )
                         .padding(.leading, 6)
-                        .padding(.bottom, 6)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                        // Resize handle / spacer between terminal and bottom panel
+                        if windowState.isBottomPanelExpanded {
+                            BottomPanelResizeHandle(
+                                windowState: windowState,
+                                totalHeight: geometry.size.height
+                            )
+                            .frame(height: 6)
+                            .padding(.leading, 6)
+                        } else {
+                            Spacer().frame(height: 6)
+                        }
 
                         BottomPanelView(
                             windowState: windowState,
@@ -199,10 +235,13 @@ struct MainWindowView: View {
                         .padding(.bottom, 6)
                     }
 
-                    // Right column: backlog
+                    // Right column: backlog with resize handle
                     if windowState.isBacklogVisible {
+                        BacklogResizeHandle(windowState: windowState, totalWidth: geometry.size.width)
+                            .frame(width: 6)
+
                         KanbanBoardView(windowState: windowState)
-                            .frame(width: geometry.size.width * windowState.backlogWidthRatio)
+                            .frame(width: max(260, geometry.size.width * windowState.backlogWidthRatio))
                             .transition(.move(edge: .trailing).combined(with: .opacity))
                     }
                 }
@@ -226,6 +265,57 @@ struct MainWindowView: View {
                 directory: windowState.activeTab?.focusedSession?.currentDirectory ?? NSHomeDirectory()
             )
         }
+    }
+}
+
+// MARK: - Backlog Resize Handle
+
+struct BacklogResizeHandle: NSViewRepresentable {
+    @Bindable var windowState: WindowState
+    let totalWidth: CGFloat
+
+    static let minWidth: CGFloat = 260
+
+    func makeNSView(context: Context) -> BacklogResizeNSView {
+        let view = BacklogResizeNSView()
+        view.onDrag = { delta in
+            let ratioChange = -delta / totalWidth
+            let newRatio = windowState.backlogWidthRatio + ratioChange
+            let minRatio = Self.minWidth / totalWidth
+            windowState.backlogWidthRatio = min(max(newRatio, minRatio), 0.50)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: BacklogResizeNSView, context: Context) {
+        nsView.onDrag = { delta in
+            let ratioChange = -delta / totalWidth
+            let newRatio = windowState.backlogWidthRatio + ratioChange
+            let minRatio = Self.minWidth / totalWidth
+            windowState.backlogWidthRatio = min(max(newRatio, minRatio), 0.50)
+        }
+    }
+}
+
+class BacklogResizeNSView: NSView {
+    var onDrag: ((CGFloat) -> Void)?
+    private var lastX: CGFloat = 0
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .resizeLeftRight)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        lastX = event.locationInWindow.x
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        let currentX = event.locationInWindow.x
+        let delta = currentX - lastX
+        lastX = currentX
+        onDrag?(delta)
     }
 }
 

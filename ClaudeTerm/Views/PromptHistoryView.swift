@@ -13,12 +13,59 @@ struct PromptHistoryView: View {
         return df
     }()
 
+    @State private var showInfoPopover = false
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
             HStack {
                 Text("Prompt History")
                     .font(.system(size: 13, weight: .semibold))
+
+                Button(action: { showInfoPopover.toggle() }) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(HoverButtonStyle())
+                .popover(isPresented: $showInfoPopover, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Data Sources")
+                            .font(.system(size: 11, weight: .semibold))
+
+                        HStack(spacing: 6) {
+                            Text("Chat")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(Color.blue.opacity(0.15)))
+                            Text("Prompts sent from the Chat panel, saved in chathistory.goat.md")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+
+                        HStack(spacing: 6) {
+                            Text("Claude Code")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(.orange)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(Color.orange.opacity(0.15)))
+                            Text("Prompts from Claude Code sessions in ~/.claude/projects/")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Divider()
+
+                        Text("No additional logging is performed. All data is read from existing files on disk.")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(12)
+                    .frame(width: 320)
+                }
 
                 Spacer()
 

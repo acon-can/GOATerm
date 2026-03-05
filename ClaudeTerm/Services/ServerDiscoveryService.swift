@@ -29,15 +29,15 @@ final class ServerDiscoveryService {
         Return raw JSON only, no markdown fences, no explanation.
         """
 
-        let messages: [(role: String, content: String)] = [
-            (role: "user", content: readmeContent)
+        let messages: [(role: String, content: String, imageData: Data?, imageMediaType: String?)] = [
+            (role: "user", content: readmeContent, imageData: nil, imageMediaType: nil)
         ]
 
         var fullResponse = ""
 
         do {
             try await ClaudeAPIService.shared.sendMessage(
-                messages: messages as! [(role: String, content: String, imageData: Data?, imageMediaType: String?)],
+                messages: messages,
                 systemPrompt: systemPrompt,
                 onToken: { token in
                     fullResponse += token

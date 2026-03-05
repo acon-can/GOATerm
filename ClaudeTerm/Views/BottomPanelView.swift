@@ -7,38 +7,49 @@ extension Notification.Name {
 
 // MARK: - Bottom Panel Resize Handle
 
-struct BottomPanelResizeHandle: View {
+struct BottomPanelResizeHandle: NSViewRepresentable {
     @Bindable var windowState: WindowState
     let totalHeight: CGFloat
 
-    @State private var isDragging = false
-    @State private var isHovering = false
+    func makeNSView(context: Context) -> BottomPanelResizeNSView {
+        let view = BottomPanelResizeNSView()
+        view.onDrag = makeDragHandler()
+        return view
+    }
 
-    var body: some View {
-        Rectangle()
-            .fill(Color.clear)
-            .frame(height: 6)
-            .contentShape(Rectangle())
-            .onHover { hovering in
-                isHovering = hovering
-                if hovering {
-                    NSCursor.resizeUpDown.push()
-                } else {
-                    NSCursor.pop()
-                }
-            }
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        isDragging = true
-                        let delta = -value.translation.height / totalHeight
-                        let newRatio = windowState.bottomPanelHeightRatio + delta
-                        windowState.bottomPanelHeightRatio = min(max(newRatio, 0.15), 0.60)
-                    }
-                    .onEnded { _ in
-                        isDragging = false
-                    }
-            )
+    func updateNSView(_ nsView: BottomPanelResizeNSView, context: Context) {
+        nsView.onDrag = makeDragHandler()
+    }
+
+    private func makeDragHandler() -> (CGFloat) -> Void {
+        { delta in
+            let ratioChange = delta / totalHeight
+            let newRatio = windowState.bottomPanelHeightRatio + ratioChange
+            let minRatio = 160 / totalHeight
+            windowState.bottomPanelHeightRatio = min(max(newRatio, minRatio), 0.60)
+        }
+    }
+}
+
+class BottomPanelResizeNSView: NSView {
+    var onDrag: ((CGFloat) -> Void)?
+    private var lastY: CGFloat = 0
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .resizeUpDown)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        lastY = event.locationInWindow.y
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        let currentY = event.locationInWindow.y
+        let delta = currentY - lastY
+        lastY = currentY
+        onDrag?(delta)
     }
 }
 
@@ -55,11 +66,6 @@ struct BottomPanelView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Draggable resize handle (only when expanded)
-            if windowState.isBottomPanelExpanded {
-                BottomPanelResizeHandle(windowState: windowState, totalHeight: totalHeight)
-            }
-
             // Tab bar
             HStack(spacing: 8) {
                 PillTabTrack {
@@ -156,9 +162,33 @@ struct BottomPanelView: View {
                 if windowState.isBottomPanelExpanded,
                    windowState.bottomPanelMode == .environment {
                     Button(action: {
-                        // Trigger a rescan by toggling the mode (the panel's onAppear/onChange handles it)
-                        // We'll post a notification instead
                         NotificationCenter.default.post(name: .envRescanRequested, object: nil)
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(HoverButtonStyle())
+                    .help("Rescan directory")
+                }
+
+                // Save/Discard buttons when editing in Settings mode
+                if windowState.isBottomPanelExpanded,
+                   windowState.bottomPanelMode == .settings,
+                   let tab = windowState.activeTab {
+                    EnvironmentDirtyButtons(
+                        envState: tab.settingsEditorState,
+                        serverStore: tab.serverStore,
+                        currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
+                        onSwitchToServers: { windowState.bottomPanelMode = .servers }
+                    )
+                }
+
+                // Refresh button for Settings mode
+                if windowState.isBottomPanelExpanded,
+                   windowState.bottomPanelMode == .settings {
+                    Button(action: {
+                        NotificationCenter.default.post(name: .settingsRescanRequested, object: nil)
                     }) {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 10))
@@ -235,6 +265,13 @@ struct BottomPanelView: View {
             case .environment:
                 EnvironmentPanelView(
                     envState: tab.envEditorState,
+                    serverStore: tab.serverStore,
+                    currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
+                    onSwitchToServers: { windowState.bottomPanelMode = .servers }
+                )
+            case .settings:
+                SettingsPanelView(
+                    settingsState: tab.settingsEditorState,
                     serverStore: tab.serverStore,
                     currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
                     onSwitchToServers: { windowState.bottomPanelMode = .servers }

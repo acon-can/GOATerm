@@ -6,6 +6,7 @@ enum BottomPanelMode: String, CaseIterable {
     case github = "Git"
     case servers = "Servers"
     case environment = "Env"
+    case settings = "Settings"
 
     var icon: String {
         switch self {
@@ -14,6 +15,7 @@ enum BottomPanelMode: String, CaseIterable {
         case .files: return "doc.text"
         case .servers: return "server.rack"
         case .environment: return "doc.badge.gearshape"
+        case .settings: return "gear"
         }
     }
 }
@@ -25,19 +27,69 @@ final class WindowState {
     var showSaveWorkspace: Bool = false
     var showWorkspaceManager: Bool = false
     private var backlogCache: [String: BacklogStore] = [:]
-    var isBacklogVisible: Bool = true
-    var backlogWidthRatio: Double = 0.25
+    var isBacklogVisible: Bool = true {
+        didSet { UserDefaults.standard.set(isBacklogVisible, forKey: "panelBacklogVisible") }
+    }
+    var backlogWidthRatio: Double = 0.25 {
+        didSet { UserDefaults.standard.set(backlogWidthRatio, forKey: "panelBacklogWidthRatio") }
+    }
     var showClaudeProject: Bool = false
     var githubState: GitHubState = GitHubState()
 
     // Bottom panel
-    var isBottomPanelExpanded: Bool = true
+    var isBottomPanelExpanded: Bool {
+        didSet { UserDefaults.standard.set(isBottomPanelExpanded, forKey: "panelBottomExpanded") }
+    }
     var bottomPanelMode: BottomPanelMode = .chat
-    var bottomPanelHeightRatio: Double = 0.35
-    var savedBottomPanelHeightRatio: Double = 0.35
+    var bottomPanelHeightRatio: Double {
+        didSet { UserDefaults.standard.set(bottomPanelHeightRatio, forKey: "panelBottomHeightRatio") }
+    }
+    var savedBottomPanelHeightRatio: Double {
+        didSet { UserDefaults.standard.set(savedBottomPanelHeightRatio, forKey: "panelBottomSavedRatio") }
+    }
+
+    /// Minimum backlog width ratio for a typical window (~1200px).
+    /// The actual minimum is enforced as 260pt in the resize handler.
+    static let defaultBacklogRatio: Double = 260.0 / 1200.0
+    /// Minimum bottom panel height ratio for a typical window (~800px).
+    static let defaultBottomRatio: Double = 160.0 / 800.0
 
     init() {
-        let firstTab = TabModel()
+        let defaults = UserDefaults.standard
+
+        // Restore panel layout or use sensible defaults
+        if defaults.object(forKey: "panelBacklogVisible") != nil {
+            self.isBacklogVisible = defaults.bool(forKey: "panelBacklogVisible")
+        } else {
+            self.isBacklogVisible = true
+        }
+
+        if let ratio = defaults.object(forKey: "panelBacklogWidthRatio") as? Double {
+            self.backlogWidthRatio = ratio
+        } else {
+            self.backlogWidthRatio = Self.defaultBacklogRatio
+        }
+
+        if defaults.object(forKey: "panelBottomExpanded") != nil {
+            self.isBottomPanelExpanded = defaults.bool(forKey: "panelBottomExpanded")
+        } else {
+            self.isBottomPanelExpanded = false
+        }
+
+        if let ratio = defaults.object(forKey: "panelBottomHeightRatio") as? Double {
+            self.bottomPanelHeightRatio = ratio
+        } else {
+            self.bottomPanelHeightRatio = Self.defaultBottomRatio
+        }
+
+        if let ratio = defaults.object(forKey: "panelBottomSavedRatio") as? Double {
+            self.savedBottomPanelHeightRatio = ratio
+        } else {
+            self.savedBottomPanelHeightRatio = Self.defaultBottomRatio
+        }
+
+        let firstSession = TerminalSession(color: .nextRotatingColor())
+        let firstTab = TabModel(session: firstSession)
         tabs = [firstTab]
         activeTabId = firstTab.id
     }
@@ -88,7 +140,8 @@ final class WindowState {
     // MARK: - Tab Operations
 
     func addTab(session: TerminalSession? = nil) {
-        let tab = TabModel(session: session)
+        let sess = session ?? TerminalSession(color: .nextRotatingColor())
+        let tab = TabModel(session: sess)
         tabs.append(tab)
         activeTabId = tab.id
     }

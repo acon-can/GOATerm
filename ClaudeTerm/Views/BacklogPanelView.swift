@@ -105,7 +105,7 @@ struct BulletRowView: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 4) {
+        HStack(alignment: .top, spacing: 4) {
             // Status icon — tap to cycle
             Button(action: {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {

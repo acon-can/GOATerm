@@ -89,12 +89,12 @@ struct ServerPanelView: View {
                     .foregroundColor(.secondary)
 
             case .noReadme:
-                Text("Add a README.md with server start commands, or ask Claude to start a server")
+                Text("No README.md found. Add one with server start commands to detect them here.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
             case .noServers:
-                Text("No server commands found in README.md. You can ask Claude to start a server for you.")
+                Text("No server commands found in README.md.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 

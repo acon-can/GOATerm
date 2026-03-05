@@ -89,4 +89,17 @@ enum TerminalColor: String, CaseIterable, Codable {
         case .gray: return .gray
         }
     }
+
+    /// Rotating colors for new windows/tabs (excludes .default and .gray)
+    private static let rotatingColors: [TerminalColor] = [
+        .blue, .green, .purple, .orange, .cyan, .red, .pink, .yellow
+    ]
+    private static var nextColorIndex = 0
+
+    /// Returns the next color in rotation, starting with blue.
+    static func nextRotatingColor() -> TerminalColor {
+        let color = rotatingColors[nextColorIndex % rotatingColors.count]
+        nextColorIndex += 1
+        return color
+    }
 }

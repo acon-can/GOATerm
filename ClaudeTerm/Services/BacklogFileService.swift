@@ -99,9 +99,23 @@ final class BacklogFileService {
         var currentColor: TerminalColor = .default
 
         let lines = content.components(separatedBy: .newlines)
+        var inComment = false
 
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            // Skip multi-line HTML comments
+            if trimmed.contains("<!--") && trimmed.contains("-->") && !trimmed.hasPrefix("<!-- color:") {
+                continue  // single-line comment (not a color directive)
+            }
+            if trimmed.contains("<!--") {
+                inComment = true
+                continue
+            }
+            if inComment {
+                if trimmed.contains("-->") { inComment = false }
+                continue
+            }
 
             // H1 = category
             if trimmed.hasPrefix("# ") && !trimmed.hasPrefix("## ") {

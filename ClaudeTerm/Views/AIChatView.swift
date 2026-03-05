@@ -521,7 +521,9 @@ struct AIChatView: View {
         clearPendingFile()
         errorMessage = nil
 
-        PromptHistoryService.shared.addPrompt(msgText, directory: currentDirectory)
+        if PreferencesManager.shared.logChatHistory {
+            PromptHistoryService.shared.addPrompt(msgText, directory: currentDirectory)
+        }
 
         let messages = chatSession.messages.map { (role: $0.role.rawValue, content: $0.content, imageData: $0.imageData, imageMediaType: $0.imageMediaType) }
         let systemPrompt = buildSystemPrompt()
