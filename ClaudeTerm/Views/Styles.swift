@@ -123,11 +123,26 @@ extension View {
 
 // MARK: - Hover Reveal System
 
+/// Shared tracker that ensures only one row is "revealed" at a time.
+@Observable
+final class HoverRevealTracker {
+    var activeRowId: UUID?
+}
+
+private struct HoverRevealTrackerKey: EnvironmentKey {
+    static let defaultValue = HoverRevealTracker()
+}
+
 private struct IsRowHoveredKey: EnvironmentKey {
     static let defaultValue = false
 }
 
 extension EnvironmentValues {
+    var hoverRevealTracker: HoverRevealTracker {
+        get { self[HoverRevealTrackerKey.self] }
+        set { self[HoverRevealTrackerKey.self] = newValue }
+    }
+
     var isRowHovered: Bool {
         get { self[IsRowHoveredKey.self] }
         set { self[IsRowHoveredKey.self] = newValue }
@@ -135,32 +150,36 @@ extension EnvironmentValues {
 }
 
 /// Attach to a row container to track hover and propagate via environment.
+/// Uses a shared tracker so only one row shows its revealed content at a time.
 struct HoverRevealModifier: ViewModifier {
-    @State private var isHovered = false
+    @Environment(\.hoverRevealTracker) private var tracker
+    private let rowId = UUID()
+
+    private var isHovered: Bool { tracker.activeRowId == rowId }
 
     func body(content: Content) -> some View {
         content
             .environment(\.isRowHovered, isHovered)
             .onHover { hovering in
-                withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
+                if hovering {
+                    tracker.activeRowId = rowId
+                } else if tracker.activeRowId == rowId {
+                    tracker.activeRowId = nil
+                }
             }
     }
 }
 
-/// Makes a view visible only when its parent row is hovered, or the element itself is hovered.
+/// Makes a view visible only when its parent row is hovered.
 /// Uses contentShape to keep the hit target active even when visually hidden.
 struct VisibleOnRowHoverModifier: ViewModifier {
     @Environment(\.isRowHovered) private var isRowHovered
-    @State private var isSelfHovered = false
-
-    private var isVisible: Bool { isRowHovered || isSelfHovered }
 
     func body(content: Content) -> some View {
         content
-            .opacity(isVisible ? 1 : 0)
+            .opacity(isRowHovered ? 1 : 0)
             .contentShape(Rectangle())
-            .animation(.easeInOut(duration: 0.15), value: isVisible)
-            .onHover { hovering in isSelfHovered = hovering }
+            .animation(.easeInOut(duration: 0.15), value: isRowHovered)
     }
 }
 

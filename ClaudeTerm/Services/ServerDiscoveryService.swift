@@ -37,7 +37,7 @@ final class ServerDiscoveryService {
 
         do {
             try await ClaudeAPIService.shared.sendMessage(
-                messages: messages,
+                messages: messages as! [(role: String, content: String, imageData: Data?, imageMediaType: String?)],
                 systemPrompt: systemPrompt,
                 onToken: { token in
                     fullResponse += token

@@ -22,7 +22,7 @@ final class ClaudeAPIService {
     private init() {}
 
     func sendMessage(
-        messages: [(role: String, content: String)],
+        messages: [(role: String, content: String, imageData: Data?, imageMediaType: String?)],
         systemPrompt: String? = nil,
         onToken: @escaping (String) -> Void
     ) async throws {
@@ -30,11 +30,45 @@ final class ClaudeAPIService {
             throw ClaudeAPIError.noAPIKey
         }
 
+        let apiMessages: [[String: Any]] = messages.map { msg in
+            if let fileData = msg.imageData, let mediaType = msg.imageMediaType {
+                var contentBlocks: [[String: Any]]
+                if mediaType == "application/pdf" {
+                    contentBlocks = [
+                        [
+                            "type": "document",
+                            "source": [
+                                "type": "base64",
+                                "media_type": mediaType,
+                                "data": fileData.base64EncodedString()
+                            ]
+                        ]
+                    ]
+                } else {
+                    contentBlocks = [
+                        [
+                            "type": "image",
+                            "source": [
+                                "type": "base64",
+                                "media_type": mediaType,
+                                "data": fileData.base64EncodedString()
+                            ]
+                        ]
+                    ]
+                }
+                if !msg.content.isEmpty {
+                    contentBlocks.append(["type": "text", "text": msg.content])
+                }
+                return ["role": msg.role, "content": contentBlocks] as [String: Any]
+            }
+            return ["role": msg.role, "content": msg.content] as [String: Any]
+        }
+
         var body: [String: Any] = [
             "model": model,
             "max_tokens": 4096,
             "stream": true,
-            "messages": messages.map { ["role": $0.role, "content": $0.content] }
+            "messages": apiMessages
         ]
         if let sys = systemPrompt {
             body["system"] = sys

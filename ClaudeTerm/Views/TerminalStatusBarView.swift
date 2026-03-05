@@ -42,16 +42,21 @@ struct TerminalStatusBarView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            if isClaudeCodeRunning, let display = truncatedPrompt {
-                Button(action: { showHistory = true }) {
-                    Text(display)
-                        .lineLimit(1)
+            // Always-visible prompt history button
+            Button(action: { showHistory = true }) {
+                HStack(spacing: 4) {
+                    Text("History")
                         .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.accentColor)
+                    if isClaudeCodeRunning, let display = truncatedPrompt {
+                        Text(display)
+                            .lineLimit(1)
+                            .font(.system(size: 10, design: .monospaced))
+                    }
                 }
-                .buttonStyle(HoverButtonStyle(padding: 2))
-                .help("View prompt history")
+                .foregroundColor(isClaudeCodeRunning ? .accentColor : .secondary)
             }
+            .buttonStyle(HoverButtonStyle(padding: 2))
+            .help("View prompt history")
 
             Spacer()
             Text(abbreviatedDirectory)

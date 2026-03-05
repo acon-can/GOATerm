@@ -11,13 +11,23 @@ final class ChatMessage: Identifiable {
     let role: ChatRole
     var content: String
     let timestamp: Date
+    var imageData: Data?
+    var imageMediaType: String?
 
-    init(id: UUID = UUID(), role: ChatRole, content: String, timestamp: Date = Date()) {
+    init(id: UUID = UUID(), role: ChatRole, content: String, timestamp: Date = Date(), imageData: Data? = nil, imageMediaType: String? = nil) {
         self.id = id
         self.role = role
         self.content = content
         self.timestamp = timestamp
+        self.imageData = imageData
+        self.imageMediaType = imageMediaType
     }
+}
+
+struct GoatAction: Codable {
+    let action: String
+    let name: String?
+    let command: String?
 }
 
 @Observable

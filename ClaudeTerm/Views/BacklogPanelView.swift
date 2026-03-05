@@ -13,6 +13,8 @@ extension View {
             self.italic()
         case .done:
             self.strikethrough().opacity(0.5)
+        case .deleted:
+            self.strikethrough().opacity(0.3)
         }
     }
 }
@@ -22,6 +24,7 @@ func statusColor(_ status: ItemStatus) -> Color {
     case .default: return .secondary
     case .inProgress: return .orange
     case .done: return .green
+    case .deleted: return .red
     }
 }
 
@@ -30,6 +33,16 @@ func statusIcon(_ status: ItemStatus) -> String {
     case .default: return "circle"
     case .inProgress: return "circle.dotted.circle"
     case .done: return "checkmark.circle.fill"
+    case .deleted: return "xmark.circle.fill"
+    }
+}
+
+func statusLabel(_ status: ItemStatus) -> String {
+    switch status {
+    case .default: return "Unstarted"
+    case .inProgress: return "In Progress"
+    case .done: return "Completed"
+    case .deleted: return "Deleted"
     }
 }
 
@@ -84,6 +97,7 @@ struct BulletRowView: View {
     let onDelete: () -> Void
     var onSave: () -> Void
     var focusedField: FocusState<BacklogField?>.Binding
+    var isBug: Bool = false
     private let prefs = PreferencesManager.shared
 
     private var isEditing: Bool {
@@ -97,6 +111,7 @@ struct BulletRowView: View {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     bullet.status = bullet.status.next
                 }
+                onSave()
             }) {
                 Image(systemName: statusIcon(bullet.status))
                     .font(prefs.backlogFont)
@@ -104,6 +119,7 @@ struct BulletRowView: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(HoverButtonStyle())
+            .help(statusLabel(bullet.status))
 
             // Always a TextField — styled differently based on focus
             TextField("Enter prompt...", text: $bullet.text, axis: .vertical)
@@ -142,8 +158,9 @@ struct BulletRowView: View {
 
             // Copy button
             Button(action: {
+                let text = isBug ? "BUG: \(bullet.text)" : bullet.text
                 NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(bullet.text, forType: .string)
+                NSPasteboard.general.setString(text, forType: .string)
             }) {
                 Image(systemName: "doc.on.doc")
                     .font(.system(size: prefs.backlogFontSize - 2))

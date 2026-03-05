@@ -49,16 +49,19 @@ struct KanbanBoardView: View {
                 // Copy active board
                 if let board = store.activeBoard {
                     Button(action: {
+                        let prefix = store.activeCategory == .bugs ? "BUG: " : ""
+                        let unstarted = board.bullets.filter { $0.status == .default }
+                        let text = unstarted.map { "- \(prefix)\($0.text)" }.joined(separator: "\n")
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(board.copyAllText, forType: .string)
+                        NSPasteboard.general.setString(text, forType: .string)
                     }) {
                         Image(systemName: "doc.on.doc")
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(HoverButtonStyle())
-                    .help("Copy all as markdown")
-                    .disabled(board.bullets.isEmpty)
+                    .help("Copy unstarted as markdown")
+                    .disabled(board.bullets.filter { $0.status == .default }.isEmpty)
                 }
             }
             .padding(.horizontal, 8)
@@ -154,11 +157,43 @@ struct KanbanColumnView: View {
             // Footer with board navigation
             columnFooter
         }
+        .onAppear {
+            if hideCompleted {
+                hiddenBulletIds = Set(board.bullets.filter { $0.isHideable }.map { $0.id })
+            }
+        }
+        .onChange(of: board.id) { _, _ in
+            if hideCompleted {
+                hiddenBulletIds = Set(board.bullets.filter { $0.isHideable }.map { $0.id })
+            }
+        }
         .onReceive(Timer.publish(every: 5, on: .main, in: .common).autoconnect()) { _ in
+            // Auto-delete bullets that have been in deleted state for 5+ seconds
+            let deletable = board.bullets.filter { $0.isDeletable }
+            if !deletable.isEmpty {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    for bullet in deletable {
+                        board.removeBullet(id: bullet.id)
+                    }
+                }
+                onSave?()
+            }
+
             guard hideCompleted else { return }
             let newHidden = Set(board.bullets.filter { $0.isHideable }.map { $0.id })
             if newHidden != hiddenBulletIds {
                 withAnimation { hiddenBulletIds = newHidden }
+            }
+        }
+        .onChange(of: focusedField) { old, new in
+            // Save when focus leaves a bullet field
+            if old != nil && new == nil {
+                onSave?()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .bottomPanelTapped)) { _ in
+            if focusedField != nil {
+                focusedField = nil
             }
         }
     }
@@ -209,7 +244,7 @@ struct KanbanColumnView: View {
                     }
             }
 
-            Text("\(board.bullets.count)")
+            Text("\(board.bullets.filter { $0.status == .default || $0.status == .inProgress }.count)")
                 .font(PreferencesManager.uiFont(size: 10))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 5)
@@ -286,7 +321,8 @@ struct KanbanColumnView: View {
                             }
                         },
                         onSave: onSave ?? {},
-                        focusedField: $focusedField
+                        focusedField: $focusedField,
+                        isBug: store.activeCategory == .bugs
                     )
                     .transition(.asymmetric(
                         insertion: .opacity.combined(with: .move(edge: .top)),
@@ -323,6 +359,10 @@ struct KanbanColumnView: View {
                 .buttonStyle(AddButtonStyle())
             }
             .padding(8)
+        }
+        .background(Color(nsColor: .controlBackgroundColor))
+        .onTapGesture {
+            focusedField = nil
         }
     }
 

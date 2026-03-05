@@ -1,6 +1,10 @@
 import SwiftUI
 import AppKit
 
+extension Notification.Name {
+    static let bottomPanelTapped = Notification.Name("bottomPanelTapped")
+}
+
 // MARK: - Bottom Panel Resize Handle
 
 struct BottomPanelResizeHandle: View {
@@ -184,6 +188,9 @@ struct BottomPanelView: View {
                 panelContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .id(windowState.activeTabId)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        NotificationCenter.default.post(name: .bottomPanelTapped, object: nil)
+                    })
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -208,8 +215,10 @@ struct BottomPanelView: View {
                     chatSession: tab.chatSession,
                     terminalSession: tab.focusedSession,
                     gitInfo: windowState.githubState.localGitInfo,
-                    servers: tab.serverStore.servers,
-                    backlogContext: windowState.activeBacklog.copyAllText
+                    serverStore: tab.serverStore,
+                    currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
+                    backlogContext: windowState.activeBacklog.copyAllText,
+                    onServerStarted: { windowState.bottomPanelMode = .servers }
                 )
             case .github:
                 GitHubPanelView(

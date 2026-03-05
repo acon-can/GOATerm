@@ -50,6 +50,7 @@
 		BB22CC33DD44EE55FF66AA10 /* EditorPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF10 /* EditorPanelView.swift */; };
 		BB22CC33DD44EE55FF66AA11 /* AgentModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF11 /* AgentModel.swift */; };
 		BB22CC33DD44EE55FF66AA12 /* DevServerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF12 /* DevServerService.swift */; };
+		FADABD2856A846CEBF36AD12 /* GoatActionParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89D7A826F98B42F58D1097F3 /* GoatActionParser.swift */; };
 		BB22CC33DD44EE55FF66AA13 /* AgentPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF13 /* AgentPanelView.swift */; };
 		BB22CC33DD44EE55FF66AA14 /* AgentIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF14 /* AgentIndicatorView.swift */; };
 		BB22CC33DD44EE55FF66AA15 /* GitHubModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55FF15 /* GitHubModel.swift */; };
@@ -64,6 +65,7 @@
 		AA77BB88CC99DD00EE11FF24 /* EnvironmentPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA77BB88CC99DD00EE11FF25 /* EnvironmentPanelView.swift */; };
 		DD11EE22FF33AA44BB55CC01 /* DMSans.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF33AA44BB55CC03 /* DMSans.ttf */; };
 		DD11EE22FF33AA44BB55CC02 /* DMSans-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF33AA44BB55CC04 /* DMSans-Italic.ttf */; };
+		FF77AA88BB99CC00DD11EE26 /* ClaudeCodeHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF77AA88BB99CC00DD11EE25 /* ClaudeCodeHistoryService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -123,6 +125,7 @@
 		AA11BB22CC33DD44EE55FF10 /* EditorPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorPanelView.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE55FF11 /* AgentModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentModel.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE55FF12 /* DevServerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevServerService.swift; sourceTree = "<group>"; };
+		89D7A826F98B42F58D1097F3 /* GoatActionParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoatActionParser.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE55FF13 /* AgentPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelView.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE55FF14 /* AgentIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIndicatorView.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE55FF15 /* GitHubModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubModel.swift; sourceTree = "<group>"; };
@@ -137,6 +140,7 @@
 		AA77BB88CC99DD00EE11FF25 /* EnvironmentPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentPanelView.swift; sourceTree = "<group>"; };
 		DD11EE22FF33AA44BB55CC03 /* DMSans.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = DMSans.ttf; sourceTree = "<group>"; };
 		DD11EE22FF33AA44BB55CC04 /* DMSans-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DMSans-Italic.ttf"; sourceTree = "<group>"; };
+		FF77AA88BB99CC00DD11EE25 /* ClaudeCodeHistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeHistoryService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXResourcesBuildPhase section */
@@ -267,8 +271,10 @@
 			children = (
 				AA11BB22CC33DD44EE55FF06 /* APIKeyManager.swift */,
 				AA11BB22CC33DD44EE55FF07 /* ClaudeAPIService.swift */,
+				FF77AA88BB99CC00DD11EE25 /* ClaudeCodeHistoryService.swift */,
 				AA11BB22CC33DD44EE55FF0A /* ClaudeProjectService.swift */,
 				AA11BB22CC33DD44EE55FF12 /* DevServerService.swift */,
+				89D7A826F98B42F58D1097F3 /* GoatActionParser.swift */,
 				AA11BB22CC33DD44EE55FF03 /* GitService.swift */,
 				AA11BB22CC33DD44EE55FF16 /* GitHubService.swift */,
 				AA11BB22CC33DD44EE55FF17 /* GitHubPollingService.swift */,
@@ -412,6 +418,7 @@
 				BB22CC33DD44EE55FF66AA10 /* EditorPanelView.swift in Sources */,
 				BB22CC33DD44EE55FF66AA11 /* AgentModel.swift in Sources */,
 				BB22CC33DD44EE55FF66AA12 /* DevServerService.swift in Sources */,
+				FADABD2856A846CEBF36AD12 /* GoatActionParser.swift in Sources */,
 				BB22CC33DD44EE55FF66AA13 /* AgentPanelView.swift in Sources */,
 				BB22CC33DD44EE55FF66AA14 /* AgentIndicatorView.swift in Sources */,
 				BB22CC33DD44EE55FF66AA15 /* GitHubModel.swift in Sources */,
@@ -422,6 +429,7 @@
 				CC33DD44EE55FF66AA77BB20 /* BottomPanelView.swift in Sources */,
 				DD44EE55FF66AA77BB88CC21 /* ServerDiscoveryService.swift in Sources */,
 				EE55FF66AA77BB88CC99DD22 /* PromptHistoryService.swift in Sources */,
+				FF77AA88BB99CC00DD11EE26 /* ClaudeCodeHistoryService.swift in Sources */,
 				FF66AA77BB88CC99DD00EE23 /* PromptHistoryView.swift in Sources */,
 				AA77BB88CC99DD00EE11FF24 /* EnvironmentPanelView.swift in Sources */,
 			);

@@ -1,9 +1,15 @@
 import Foundation
 
+enum PromptSource {
+    case chat
+    case claudeCode
+}
+
 struct PromptEntry: Identifiable {
     let id: UUID
     let timestamp: Date
     let prompt: String
+    var source: PromptSource = .chat
 }
 
 final class PromptHistoryService {
@@ -39,7 +45,9 @@ final class PromptHistoryService {
         } else {
             let header = "# Prompt History\n\n"
             let content = header + entry
-            try? content.write(toFile: filePath, atomically: true, encoding: .utf8)
+            if let data = content.data(using: .utf8) {
+                FileManager.default.createFile(atPath: filePath, contents: data)
+            }
         }
     }
 
@@ -47,13 +55,14 @@ final class PromptHistoryService {
 
     func loadHistory(directory: String) -> [PromptEntry] {
         let filePath = (directory as NSString).appendingPathComponent(fileName)
-        guard FileManager.default.fileExists(atPath: filePath),
-              let content = try? String(contentsOfFile: filePath, encoding: .utf8) else {
+        guard let data = FileManager.default.contents(atPath: filePath),
+              let content = String(data: data, encoding: .utf8),
+              !content.isEmpty else {
             return []
         }
 
         var entries: [PromptEntry] = []
-        for line in content.components(separatedBy: "\n") {
+        for line in content.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard trimmed.hasPrefix("- [") else { continue }
 
@@ -72,10 +81,19 @@ final class PromptHistoryService {
         return entries.reversed()  // Most recent first
     }
 
+    // MARK: - Load All History (Chat + Claude Code)
+
+    func loadAllHistory(directory: String) -> [PromptEntry] {
+        let chatEntries = loadHistory(directory: directory)
+        let claudeEntries = ClaudeCodeHistoryService.shared.loadHistory(directory: directory)
+        let merged = (chatEntries + claudeEntries).sorted { $0.timestamp > $1.timestamp }
+        return merged
+    }
+
     // MARK: - Copy All
 
     func copyAllText(directory: String) -> String {
-        let entries = loadHistory(directory: directory)
+        let entries = loadAllHistory(directory: directory)
         return entries.reversed().map { "- \($0.prompt)" }.joined(separator: "\n")
     }
 }

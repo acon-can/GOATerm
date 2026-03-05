@@ -33,6 +33,35 @@ final class PreferencesManager {
     var defaultDirectory: String? {
         didSet { UserDefaults.standard.set(defaultDirectory, forKey: "defaultDirectory") }
     }
+    var gitignoreBacklog: Bool {
+        didSet { UserDefaults.standard.set(gitignoreBacklog, forKey: "gitignoreBacklog") }
+    }
+
+    // Chat context toggles
+    var contextFileTree: Bool {
+        didSet { UserDefaults.standard.set(contextFileTree, forKey: "contextFileTree") }
+    }
+    var contextGitStatus: Bool {
+        didSet { UserDefaults.standard.set(contextGitStatus, forKey: "contextGitStatus") }
+    }
+    var contextReadme: Bool {
+        didSet { UserDefaults.standard.set(contextReadme, forKey: "contextReadme") }
+    }
+    var contextClaudeMd: Bool {
+        didSet { UserDefaults.standard.set(contextClaudeMd, forKey: "contextClaudeMd") }
+    }
+    var contextManifest: Bool {
+        didSet { UserDefaults.standard.set(contextManifest, forKey: "contextManifest") }
+    }
+    var contextEnvVars: Bool {
+        didSet { UserDefaults.standard.set(contextEnvVars, forKey: "contextEnvVars") }
+    }
+    var contextServers: Bool {
+        didSet { UserDefaults.standard.set(contextServers, forKey: "contextServers") }
+    }
+    var contextBacklog: Bool {
+        didSet { UserDefaults.standard.set(contextBacklog, forKey: "contextBacklog") }
+    }
 
     static func uiFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         .custom("DM Sans", size: size).weight(weight)
@@ -64,6 +93,15 @@ final class PreferencesManager {
         self.optionAsMeta = defaults.object(forKey: "optionAsMeta") as? Bool ?? true
         self.backlogFontSize = defaults.object(forKey: "backlogFontSize") as? CGFloat ?? 14.0
         self.defaultDirectory = defaults.string(forKey: "defaultDirectory")
+        self.gitignoreBacklog = defaults.object(forKey: "gitignoreBacklog") as? Bool ?? true
+        self.contextFileTree = defaults.object(forKey: "contextFileTree") as? Bool ?? true
+        self.contextGitStatus = defaults.object(forKey: "contextGitStatus") as? Bool ?? true
+        self.contextReadme = defaults.object(forKey: "contextReadme") as? Bool ?? true
+        self.contextClaudeMd = defaults.object(forKey: "contextClaudeMd") as? Bool ?? true
+        self.contextManifest = defaults.object(forKey: "contextManifest") as? Bool ?? true
+        self.contextEnvVars = defaults.object(forKey: "contextEnvVars") as? Bool ?? true
+        self.contextServers = defaults.object(forKey: "contextServers") as? Bool ?? true
+        self.contextBacklog = defaults.object(forKey: "contextBacklog") as? Bool ?? true
     }
 }
 
@@ -82,12 +120,17 @@ struct PreferencesView: View {
                     Label("Appearance", systemImage: "paintbrush")
                 }
 
+            ChatContextPreferencesView(prefs: prefs)
+                .tabItem {
+                    Label("Chat Context", systemImage: "brain")
+                }
+
             APIPreferencesView()
                 .tabItem {
                     Label("API", systemImage: "key")
                 }
         }
-        .frame(width: 450, height: 300)
+        .frame(width: 450, height: 360)
     }
 }
 
@@ -155,6 +198,11 @@ struct GeneralPreferencesView: View {
             Section("Cursor") {
                 Toggle("Cursor blink", isOn: $prefs.cursorBlink)
             }
+
+            Section("Backlog") {
+                Toggle("Add backlog to .gitignore", isOn: $prefs.gitignoreBacklog)
+                    .help("When enabled, backlog.goat.md is added to .gitignore so it stays local. Disable to sync it with Git.")
+            }
         }
         .formStyle(.grouped)
         .padding()
@@ -198,6 +246,35 @@ struct APIPreferencesView: View {
                             .foregroundColor(.green)
                     }
                 }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+}
+
+struct ChatContextPreferencesView: View {
+    @Bindable var prefs: PreferencesManager
+
+    var body: some View {
+        Form {
+            Section("Context Sources") {
+                Toggle("File Tree", isOn: $prefs.contextFileTree)
+                    .help("Include project file tree in chat context")
+                Toggle("Git Status", isOn: $prefs.contextGitStatus)
+                    .help("Include git branch, staged files, and recent commits")
+                Toggle("README.md", isOn: $prefs.contextReadme)
+                    .help("Include project README contents")
+                Toggle("CLAUDE.md", isOn: $prefs.contextClaudeMd)
+                    .help("Include CLAUDE.md project instructions")
+                Toggle("Project Manifest", isOn: $prefs.contextManifest)
+                    .help("Include package.json, Package.swift, etc.")
+                Toggle("Environment Variables", isOn: $prefs.contextEnvVars)
+                    .help("Include .env variable names (values hidden)")
+                Toggle("Dev Servers", isOn: $prefs.contextServers)
+                    .help("Include running dev server status")
+                Toggle("Backlog", isOn: $prefs.contextBacklog)
+                    .help("Include backlog prompts in chat context")
             }
         }
         .formStyle(.grouped)

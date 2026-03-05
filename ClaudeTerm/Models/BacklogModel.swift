@@ -4,12 +4,14 @@ enum ItemStatus: String, Codable {
     case `default` = "default"
     case inProgress = "inProgress"
     case done = "done"
+    case deleted = "deleted"
 
     var next: ItemStatus {
         switch self {
         case .default: return .inProgress
         case .inProgress: return .done
-        case .done: return .default
+        case .done: return .deleted
+        case .deleted: return .default
         }
     }
 }
@@ -26,20 +28,28 @@ final class Bullet: Identifiable {
     var status: ItemStatus {
         didSet {
             doneAt = status == .done ? Date() : nil
+            deletedAt = status == .deleted ? Date() : nil
         }
     }
     var doneAt: Date?
+    var deletedAt: Date?
 
     init(id: UUID = UUID(), text: String = "", status: ItemStatus = .default) {
         self.id = id
         self.text = text
         self.status = status
         self.doneAt = status == .done ? Date.distantPast : nil
+        self.deletedAt = nil
     }
 
     var isHideable: Bool {
         guard status == .done, let doneAt else { return false }
         return Date().timeIntervalSince(doneAt) >= 15
+    }
+
+    var isDeletable: Bool {
+        guard status == .deleted, let deletedAt else { return false }
+        return Date().timeIntervalSince(deletedAt) >= 5
     }
 }
 
@@ -228,9 +238,13 @@ final class BacklogStore {
     }
 
     func bulletCount(for category: BacklogCategory) -> Int {
+        let boards: [KanbanBoard]
         switch category {
-        case .features: return featureBoards.reduce(0) { $0 + $1.bullets.count }
-        case .bugs: return bugBoards.reduce(0) { $0 + $1.bullets.count }
+        case .features: boards = featureBoards
+        case .bugs: boards = bugBoards
+        }
+        return boards.reduce(0) { total, board in
+            total + board.bullets.filter { $0.status == .default || $0.status == .inProgress }.count
         }
     }
 

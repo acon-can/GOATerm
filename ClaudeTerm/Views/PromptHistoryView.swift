@@ -5,6 +5,7 @@ struct PromptHistoryView: View {
     let directory: String
     @Environment(\.dismiss) private var dismiss
     @State private var entries: [PromptEntry] = []
+    @State private var refreshTimer: Timer?
 
     private let dateFormatter: DateFormatter = {
         let df = DateFormatter()
@@ -74,7 +75,16 @@ struct PromptHistoryView: View {
         .frame(width: 480, height: 400)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
-            entries = PromptHistoryService.shared.loadHistory(directory: directory)
+            entries = PromptHistoryService.shared.loadAllHistory(directory: directory)
+            refreshTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
+                DispatchQueue.main.async {
+                    entries = PromptHistoryService.shared.loadAllHistory(directory: directory)
+                }
+            }
+        }
+        .onDisappear {
+            refreshTimer?.invalidate()
+            refreshTimer = nil
         }
     }
 }
@@ -92,9 +102,21 @@ struct PromptRowView: View {
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                Text(dateFormatter.string(from: entry.timestamp))
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
+                HStack(spacing: 6) {
+                    Text(entry.source == .chat ? "Chat" : "Claude Code")
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundColor(entry.source == .chat ? .blue : .orange)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(
+                            Capsule()
+                                .fill(entry.source == .chat ? Color.blue.opacity(0.15) : Color.orange.opacity(0.15))
+                        )
+
+                    Text(dateFormatter.string(from: entry.timestamp))
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
             }
 
             Button(action: {

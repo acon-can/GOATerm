@@ -39,7 +39,54 @@ final class BacklogFileService {
             return
         }
 
-        try? content.write(toFile: filePath, atomically: true, encoding: .utf8)
+        if let data = content.data(using: .utf8) {
+            let url = URL(fileURLWithPath: filePath)
+            try? data.write(to: url, options: .atomic)
+        }
+        updateGitignore(in: directory)
+    }
+
+    // MARK: - .gitignore
+
+    /// Adds or removes `backlog.goat.md` from the project's `.gitignore`
+    /// based on the user's preference.
+    func updateGitignore(in directory: String) {
+        let gitignorePath = (directory as NSString).appendingPathComponent(".gitignore")
+        let entry = fileName
+
+        // Only manage .gitignore in directories that are git repos
+        let gitDir = (directory as NSString).appendingPathComponent(".git")
+        guard FileManager.default.fileExists(atPath: gitDir) else { return }
+
+        let shouldIgnore = PreferencesManager.shared.gitignoreBacklog
+
+        var lines: [String] = []
+        if let data = FileManager.default.contents(atPath: gitignorePath),
+           let existing = String(data: data, encoding: .utf8) {
+            lines = existing.components(separatedBy: .newlines)
+        }
+
+        let alreadyIgnored = lines.contains(where: { $0.trimmingCharacters(in: .whitespaces) == entry })
+
+        if shouldIgnore && !alreadyIgnored {
+            // Add entry
+            if let last = lines.last, last.isEmpty {
+                lines.insert(entry, at: lines.count - 1)
+            } else {
+                lines.append(entry)
+            }
+            let result = lines.joined(separator: "\n")
+            if let data = result.data(using: .utf8) {
+                try? data.write(to: URL(fileURLWithPath: gitignorePath), options: .atomic)
+            }
+        } else if !shouldIgnore && alreadyIgnored {
+            // Remove entry
+            lines.removeAll { $0.trimmingCharacters(in: .whitespaces) == entry }
+            let result = lines.joined(separator: "\n")
+            if let data = result.data(using: .utf8) {
+                try? data.write(to: URL(fileURLWithPath: gitignorePath), options: .atomic)
+            }
+        }
     }
 
     // MARK: - Parser
@@ -159,6 +206,27 @@ final class BacklogFileService {
     private func serialize(_ store: BacklogStore) -> String {
         var lines: [String] = []
 
+        // Header
+        lines.append("<!--")
+        lines.append("  backlog.goat.md — Project backlog managed by GOAT Terminal (ClaudeTerm).")
+        lines.append("")
+        lines.append("  This file is auto-generated and kept in sync with the app's Backlog panel.")
+        lines.append("  You can also edit it by hand — changes are picked up on the next load.")
+        lines.append("")
+        lines.append("  Format:")
+        lines.append("    # Features / # Bugs   — top-level categories")
+        lines.append("    ## Board Name          — a named board (tab) within the category")
+        lines.append("    - [ ] item             — unstarted")
+        lines.append("    - [/] item             — in progress")
+        lines.append("    - [x] item             — completed")
+        lines.append("    <!-- color: name -->    — optional board color (blue, green, red, etc.)")
+        lines.append("")
+        lines.append("  For AI agents: treat each unchecked item as a task prompt. Items under")
+        lines.append("  \"# Features\" are feature requests; items under \"# Bugs\" are bug reports.")
+        lines.append("  Mark items [/] when you start work and [x] when done.")
+        lines.append("-->")
+        lines.append("")
+
         // Features
         lines.append("# Features")
         lines.append("")
@@ -167,7 +235,7 @@ final class BacklogFileService {
             if board.color != .default {
                 lines.append("<!-- color: \(board.color.rawValue) -->")
             }
-            for bullet in board.bullets {
+            for bullet in board.bullets where bullet.status != .deleted {
                 let checkbox = checkboxString(for: bullet.status)
                 lines.append("- [\(checkbox)] \(bullet.text)")
             }
@@ -182,7 +250,7 @@ final class BacklogFileService {
             if board.color != .default {
                 lines.append("<!-- color: \(board.color.rawValue) -->")
             }
-            for bullet in board.bullets {
+            for bullet in board.bullets where bullet.status != .deleted {
                 let checkbox = checkboxString(for: bullet.status)
                 lines.append("- [\(checkbox)] \(bullet.text)")
             }
@@ -197,6 +265,7 @@ final class BacklogFileService {
         case .default: return " "
         case .inProgress: return "/"
         case .done: return "x"
+        case .deleted: return "-"
         }
     }
 }

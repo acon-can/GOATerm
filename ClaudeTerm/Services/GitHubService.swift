@@ -116,6 +116,68 @@ enum GitHubService {
         )
     }
 
+    // MARK: - Branches
+
+    static func fetchBranches(in directory: String) async -> [GitBranchInfo] {
+        let git = "/usr/bin/git"
+        let c = ["-C", directory]
+
+        // Get the default branch name (main/master) for ahead/behind comparison
+        let defaultBranch: String
+        if let mainRef = try? await run(git, arguments: c + ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"]) {
+            // Returns e.g. "origin/main" → strip "origin/"
+            let trimmed = mainRef.trimmingCharacters(in: .whitespacesAndNewlines)
+            defaultBranch = trimmed.hasPrefix("origin/") ? String(trimmed.dropFirst(7)) : trimmed
+        } else {
+            defaultBranch = "main"
+        }
+
+        // git branch -a --format with tab-separated fields:
+        // refname:short, HEAD indicator, author, relative date
+        guard let output = try? await run(git, arguments: c + [
+            "branch", "--format=%(refname:short)\t%(HEAD)\t%(authorname)\t%(committerdate:relative)",
+            "--sort=-committerdate"
+        ]) else { return [] }
+
+        let currentBranch = (try? await run(git, arguments: c + ["branch", "--show-current"]))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        var branches: [GitBranchInfo] = []
+        for line in output.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "\n") {
+            let parts = line.split(separator: "\t", maxSplits: 3)
+            guard parts.count == 4 else { continue }
+            let name = String(parts[0])
+            let isCurrent = parts[1].trimmingCharacters(in: .whitespaces) == "*"
+            let author = String(parts[2])
+            let date = String(parts[3])
+
+            // Ahead/behind relative to default branch
+            var ahead = 0, behind = 0
+            if name != defaultBranch {
+                if let ab = try? await run(git, arguments: c + [
+                    "rev-list", "--left-right", "--count", "\(defaultBranch)...\(name)"
+                ]) {
+                    let counts = ab.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "\t")
+                    if counts.count == 2 {
+                        behind = Int(counts[0]) ?? 0
+                        ahead = Int(counts[1]) ?? 0
+                    }
+                }
+            }
+
+            branches.append(GitBranchInfo(
+                name: name,
+                isCurrent: name == currentBranch,
+                lastCommitDate: date,
+                lastAuthor: author,
+                ahead: ahead,
+                behind: behind
+            ))
+        }
+
+        return branches
+    }
+
     // MARK: - Repo Detection
 
     static func detectRepo(in directory: String) async -> String? {

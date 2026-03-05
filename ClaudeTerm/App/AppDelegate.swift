@@ -3,6 +3,10 @@ import SwiftTerm
 import CoreText
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    /// Tracks whether the user already confirmed quit via windowShouldClose,
+    /// so applicationShouldTerminate doesn't show the alert a second time.
+    private var userConfirmedQuit = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         registerBundledFonts()
         NotificationService.shared.requestPermission()
@@ -28,6 +32,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if userConfirmedQuit {
+            return .terminateNow
+        }
+
         guard shouldWarnBeforeQuitting() else {
             return .terminateNow
         }
@@ -48,6 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         if showQuitAlert() {
+            userConfirmedQuit = true
             DevServerService.shared.stopAll()
             terminateAllTerminals()
             return true

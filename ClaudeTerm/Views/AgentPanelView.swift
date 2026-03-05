@@ -89,12 +89,12 @@ struct ServerPanelView: View {
                     .foregroundColor(.secondary)
 
             case .noReadme:
-                Text("Add a README.md with server start commands to discover them here")
+                Text("Add a README.md with server start commands, or ask Claude to start a server")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
             case .noServers:
-                Text("No server commands found in README.md")
+                Text("No server commands found in README.md. You can ask Claude to start a server for you.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
@@ -121,7 +121,11 @@ struct ServerPanelView: View {
             VStack(spacing: 0) {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        Text(server.logOutput.isEmpty ? "(no output)" : server.logOutput)
+                        Text(server.logOutput.isEmpty
+                            ? (server.status == .stopped || server.status == .error
+                                ? "Press start to run this server"
+                                : "Waiting for output...")
+                            : server.logOutput)
                             .font(.system(size: 11, design: .monospaced))
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)

@@ -70,6 +70,20 @@ final class ServerStore {
         discoveryStatus = discovered.isEmpty ? .noServers : .discovered
     }
 
+    @discardableResult
+    func addServer(name: String, command: String) -> ServerSession {
+        // Deduplicate by command string
+        if let existing = servers.first(where: { $0.command == command }) {
+            selectedServerId = existing.id
+            return existing
+        }
+        let server = ServerSession(name: name, command: command)
+        servers.append(server)
+        discoveryStatus = .discovered
+        selectedServerId = server.id
+        return server
+    }
+
     func removeServer(id: UUID) {
         DevServerService.shared.stop(serverId: id)
         servers.removeAll { $0.id == id }

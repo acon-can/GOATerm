@@ -5,11 +5,15 @@ struct TabBarView: View {
     @State private var editingTabId: UUID?
     @State private var draggedTab: TabModel?
 
+    // NOTE: The island height, padding, and traffic-light spacer width are
+    // mirrored in IslandLayout (MainWindowView.swift) for traffic-light
+    // positioning. If you change these values, update IslandLayout too.
+
     var body: some View {
         HStack(spacing: 0) {
-            // Traffic light spacer
+            // Traffic light spacer — width covers 3 buttons at IslandLayout spacing
             Color.clear
-                .frame(width: 68)
+                .frame(width: IslandLayout.trafficLightX + CGFloat(2) * IslandLayout.trafficLightSpacing + 14)
                 .allowsHitTesting(false)
 
             // Tab scroll area
@@ -76,15 +80,15 @@ struct TabBarView: View {
             .help("Toggle Backlog (Cmd+Shift+B)")
             .padding(.trailing, 6)
         }
-        .frame(height: 38)
+        .frame(height: IslandLayout.height)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color(nsColor: .controlBackgroundColor))
                 .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
         )
-        .padding(.top, 6)
-        .padding(.leading, 6)
-        .padding(.bottom, 6)
+        .padding(.top, IslandLayout.outerPadding)
+        .padding(.leading, IslandLayout.outerPadding)
+        .padding(.bottom, IslandLayout.outerPadding)
     }
 }
 
@@ -168,13 +172,6 @@ struct TabItemView: View {
                     .popover(isPresented: $showGitGraph) {
                         GitGraphView(directory: session.currentDirectory)
                     }
-                }
-
-                if let cmd = session.runningCommand {
-                    Text(cmd)
-                        .font(PreferencesManager.uiFont(size: 10))
-                        .foregroundColor(.orange)
-                        .lineLimit(1)
                 }
             }
 

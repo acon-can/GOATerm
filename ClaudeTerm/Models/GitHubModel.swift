@@ -10,6 +10,7 @@ final class GitHubState {
     var lastError: String?
     var currentRepo: String?
     var localGitInfo: LocalGitInfo?
+    var branches: [GitBranchInfo] = []
 
     var filteredPRs: [PRInfo] {
         guard let repo = currentRepo else { return myPRs }
@@ -48,6 +49,16 @@ struct GitCommitInfo: Identifiable {
     let author: String
     let relativeDate: String
     var id: String { hash }
+}
+
+struct GitBranchInfo: Identifiable {
+    let name: String
+    let isCurrent: Bool
+    let lastCommitDate: String
+    let lastAuthor: String
+    let ahead: Int
+    let behind: Int
+    var id: String { name }
 }
 
 struct SearchRepository: Codable {
