@@ -65,163 +65,8 @@ struct BottomPanelView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Tab bar
-            HStack(spacing: 8) {
-                PillTabTrack {
-                    ForEach(BottomPanelMode.allCases, id: \.self) { mode in
-                        Button(action: {
-                            if windowState.isBottomPanelExpanded {
-                                windowState.bottomPanelMode = mode
-                            } else {
-                                windowState.bottomPanelMode = mode
-                                windowState.bottomPanelHeightRatio = windowState.savedBottomPanelHeightRatio
-                                windowState.isBottomPanelExpanded = true
-                            }
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: mode.icon)
-                                    .font(PreferencesManager.uiFont(size: 10))
-                                Text(mode.rawValue)
-                                    .font(PreferencesManager.uiFont(size: 11))
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                        }
-                        .buttonStyle(PanelTabButtonStyle(
-                            isActive: windowState.isBottomPanelExpanded && windowState.bottomPanelMode == mode,
-                            activeColor: activeColor
-                        ))
-                    }
-                }
-                Spacer()
-
-                // Save/Discard buttons when editing a file in Files mode
-                if windowState.isBottomPanelExpanded,
-                   windowState.bottomPanelMode == .files,
-                   let file = windowState.activeEditorState?.activeFile,
-                   file.isDirty {
-                    Button(action: {
-                        if let data = FileManager.default.contents(atPath: file.path),
-                           let content = String(data: data, encoding: .utf8) {
-                            file.content = content
-                            file.isDirty = false
-                        }
-                    }) {
-                        Text("Discard")
-                            .font(PreferencesManager.uiFont(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(HoverButtonStyle())
-                    .help("Discard changes")
-
-                    Button(action: {
-                        file.save()
-                        let name = (file.path as NSString).lastPathComponent
-                        if name == "CLAUDE.md" || name == "settings.json" || name == "settings.local.json" {
-                            EnvironmentEditorState.promptClaudeCodeRestart()
-                        }
-                    }) {
-                        Text("Save")
-                            .font(PreferencesManager.uiFont(size: 10))
-                            .foregroundColor(.accentColor)
-                    }
-                    .buttonStyle(HoverButtonStyle())
-                    .help("Save file")
-                }
-
-                // Save/Discard buttons when editing in Environment mode
-                if windowState.isBottomPanelExpanded,
-                   windowState.bottomPanelMode == .environment,
-                   let tab = windowState.activeTab {
-                    EnvironmentDirtyButtons(
-                        envState: tab.envEditorState,
-                        afterSave: {
-                            EnvironmentEditorState.promptServerRestart(
-                                serverStore: tab.serverStore,
-                                currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
-                                onSwitchToServers: { windowState.bottomPanelMode = .servers }
-                            )
-                        }
-                    )
-                }
-
-                // Refresh button for Servers mode
-                if windowState.isBottomPanelExpanded,
-                   windowState.bottomPanelMode == .servers,
-                   let tab = windowState.activeTab {
-                    Button(action: {
-                        Task {
-                            await ServerDiscoveryService.shared.discoverServers(
-                                in: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
-                                store: tab.serverStore
-                            )
-                        }
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(HoverButtonStyle())
-                    .help("Rescan README.md")
-                }
-
-                // Refresh button for Environment mode
-                if windowState.isBottomPanelExpanded,
-                   windowState.bottomPanelMode == .environment {
-                    Button(action: {
-                        NotificationCenter.default.post(name: .envRescanRequested, object: nil)
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(HoverButtonStyle())
-                    .help("Rescan directory")
-                }
-
-                // Save/Discard buttons when editing in Settings mode
-                if windowState.isBottomPanelExpanded,
-                   windowState.bottomPanelMode == .settings,
-                   let tab = windowState.activeTab {
-                    EnvironmentDirtyButtons(
-                        envState: tab.settingsEditorState,
-                        afterSave: {
-                            EnvironmentEditorState.promptClaudeCodeRestart()
-                        }
-                    )
-                }
-
-                // Refresh button for Settings mode
-                if windowState.isBottomPanelExpanded,
-                   windowState.bottomPanelMode == .settings {
-                    Button(action: {
-                        NotificationCenter.default.post(name: .settingsRescanRequested, object: nil)
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(HoverButtonStyle())
-                    .help("Rescan directory")
-                }
-
-                // Expand/collapse button
-                Button(action: {
-                    windowState.toggleBottomPanel()
-                }) {
-                    Image(systemName: "rectangle.bottomhalf.inset.filled")
-                        .font(.system(size: 10))
-                        .foregroundColor(windowState.isBottomPanelExpanded ? .accentColor : .secondary)
-                }
-                .buttonStyle(HoverButtonStyle())
-                .help(windowState.isBottomPanelExpanded ? "Collapse panel" : "Expand panel")
-            }
-            .padding(.horizontal, 8)
-            .padding(.top, 6)
-            .padding(.bottom, 4)
-
-            // Content (only when expanded)
+        ZStack(alignment: .top) {
+            // Content — fills entire area behind the tab bar
             if windowState.isBottomPanelExpanded {
                 panelContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -230,6 +75,25 @@ struct BottomPanelView: View {
                         NotificationCenter.default.post(name: .bottomPanelTapped, object: nil)
                     })
             }
+
+            // Floating tab bar
+            tabBarContent
+                .background {
+                    if windowState.isBottomPanelExpanded && windowState.bottomPanelMode == .chat {
+                        Rectangle().fill(.thickMaterial)
+                            .mask(
+                                LinearGradient(
+                                    stops: [
+                                        .init(color: .black.opacity(0.75), location: 0),
+                                        .init(color: .black.opacity(0.5), location: 0.7),
+                                        .init(color: .clear, location: 1)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
+                }
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .background(
@@ -242,6 +106,168 @@ struct BottomPanelView: View {
                 windowState.activeTab?.editorState.rootDirectory = dir
             }
         }
+    }
+
+    @ViewBuilder
+    private var tabBarContent: some View {
+        HStack(spacing: 8) {
+            PillTabTrack {
+                ForEach(BottomPanelMode.allCases, id: \.self) { mode in
+                    Button(action: {
+                        if windowState.isBottomPanelExpanded {
+                            windowState.bottomPanelMode = mode
+                        } else {
+                            windowState.bottomPanelMode = mode
+                            windowState.bottomPanelHeightRatio = windowState.savedBottomPanelHeightRatio
+                            windowState.isBottomPanelExpanded = true
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: mode.icon)
+                                .font(PreferencesManager.uiFont(size: 10))
+                            Text(mode.rawValue)
+                                .font(PreferencesManager.uiFont(size: 11))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(PanelTabButtonStyle(
+                        isActive: windowState.isBottomPanelExpanded && windowState.bottomPanelMode == mode,
+                        activeColor: activeColor
+                    ))
+                }
+            }
+            Spacer()
+
+            // Save/Discard buttons when editing a file in Files mode
+            if windowState.isBottomPanelExpanded,
+               windowState.bottomPanelMode == .files,
+               let file = windowState.activeEditorState?.activeFile,
+               file.isDirty {
+                Button(action: {
+                    if let data = FileManager.default.contents(atPath: file.path),
+                       let content = String(data: data, encoding: .utf8) {
+                        file.content = content
+                        file.isDirty = false
+                    }
+                }) {
+                    Text("Discard")
+                        .font(PreferencesManager.uiFont(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(HoverButtonStyle())
+                .help("Discard changes")
+
+                Button(action: {
+                    file.save()
+                    let name = (file.path as NSString).lastPathComponent
+                    if name == "CLAUDE.md" || name == "settings.json" || name == "settings.local.json" {
+                        EnvironmentEditorState.promptClaudeCodeRestart()
+                    }
+                }) {
+                    Text("Save")
+                        .font(PreferencesManager.uiFont(size: 10))
+                        .foregroundColor(.accentColor)
+                }
+                .buttonStyle(HoverButtonStyle())
+                .help("Save file")
+            }
+
+            // Save/Discard buttons when editing in Environment mode
+            if windowState.isBottomPanelExpanded,
+               windowState.bottomPanelMode == .environment,
+               let tab = windowState.activeTab {
+                EnvironmentDirtyButtons(
+                    envState: tab.envEditorState,
+                    afterSave: {
+                        EnvironmentEditorState.promptServerRestart(
+                            serverStore: tab.serverStore,
+                            currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
+                            onSwitchToServers: { windowState.bottomPanelMode = .servers }
+                        )
+                    }
+                )
+            }
+
+            // Refresh button for Servers mode
+            if windowState.isBottomPanelExpanded,
+               windowState.bottomPanelMode == .servers,
+               let tab = windowState.activeTab {
+                Button(action: {
+                    Task {
+                        await ServerDiscoveryService.shared.discoverServers(
+                            in: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
+                            store: tab.serverStore
+                        )
+                    }
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(HoverButtonStyle())
+                .help("Rescan README.md")
+            }
+
+            // Refresh button for Environment mode
+            if windowState.isBottomPanelExpanded,
+               windowState.bottomPanelMode == .environment {
+                Button(action: {
+                    NotificationCenter.default.post(name: .envRescanRequested, object: nil)
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(HoverButtonStyle())
+                .help("Rescan directory")
+            }
+
+            // Save/Discard buttons when editing in Settings mode
+            if windowState.isBottomPanelExpanded,
+               windowState.bottomPanelMode == .settings,
+               let tab = windowState.activeTab {
+                EnvironmentDirtyButtons(
+                    envState: tab.settingsEditorState,
+                    afterSave: {
+                        EnvironmentEditorState.promptClaudeCodeRestart()
+                    }
+                )
+            }
+
+            // Refresh button for Settings mode
+            if windowState.isBottomPanelExpanded,
+               windowState.bottomPanelMode == .settings {
+                Button(action: {
+                    NotificationCenter.default.post(name: .settingsRescanRequested, object: nil)
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(HoverButtonStyle())
+                .help("Rescan directory")
+            }
+
+            // Expand/collapse button — aligned with submit button below
+            Button(action: {
+                windowState.toggleBottomPanel()
+            }) {
+                Image(systemName: "rectangle.bottomhalf.inset.filled")
+                    .font(.system(size: 10))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+            }
+            .buttonStyle(PanelTabButtonStyle(
+                isActive: windowState.isBottomPanelExpanded,
+                activeColor: activeColor
+            ))
+            .help(windowState.isBottomPanelExpanded ? "Collapse panel" : "Expand panel")
+        }
+        .padding(.leading, 8)
+        .padding(.trailing, 28)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
     }
 
     @ViewBuilder
@@ -263,13 +289,16 @@ struct BottomPanelView: View {
                     githubState: windowState.githubState,
                     currentDirectory: tab.focusedSession?.currentDirectory
                 )
+                .padding(.top, 36)
             case .files:
                 EditorPanelView(editorState: tab.editorState)
+                    .padding(.top, 36)
             case .servers:
                 ServerPanelView(
                     serverStore: tab.serverStore,
                     currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory()
                 )
+                .padding(.top, 36)
             case .environment:
                 EnvironmentPanelView(
                     envState: tab.envEditorState,
@@ -277,6 +306,7 @@ struct BottomPanelView: View {
                     currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
                     onSwitchToServers: { windowState.bottomPanelMode = .servers }
                 )
+                .padding(.top, 36)
             case .settings:
                 SettingsPanelView(
                     settingsState: tab.settingsEditorState,
@@ -284,6 +314,7 @@ struct BottomPanelView: View {
                     currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
                     onSwitchToServers: { windowState.bottomPanelMode = .servers }
                 )
+                .padding(.top, 36)
             }
         }
     }

@@ -72,11 +72,14 @@ struct TabBarView: View {
                 }
             }) {
                 Image(systemName: "sidebar.right")
-                    .font(.system(size: 12))
-                    .foregroundColor(windowState.isBacklogVisible ? .accentColor : .secondary)
-                    .frame(width: 28, height: 28)
+                    .font(.system(size: 11))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
             }
-            .buttonStyle(HoverButtonStyle(cornerRadius: 6))
+            .buttonStyle(PanelTabButtonStyle(
+                isActive: windowState.isBacklogVisible,
+                activeColor: .accentColor
+            ))
             .help("Toggle Backlog (Cmd+Shift+B)")
             .padding(.trailing, 6)
         }

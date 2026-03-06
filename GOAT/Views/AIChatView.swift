@@ -2,6 +2,21 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+// MARK: - Overlay Scroller
+
+private struct OverlayScrollerStyle: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            if let scrollView = view.enclosingScrollView {
+                scrollView.scrollerStyle = .overlay
+            }
+        }
+        return view
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
 struct AIChatView: View {
     @Bindable var chatSession: ChatSession
     let terminalSession: TerminalSession?
@@ -18,8 +33,8 @@ struct AIChatView: View {
     @State private var isDropTargeted = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // API Key setup prompt
+        ZStack(alignment: .bottom) {
+            // Content area — fills the full height
             if !hasApiKey {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 0) {
@@ -76,61 +91,91 @@ struct AIChatView: View {
                     }
                 }
                 .padding(12)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-            }
-            // Messages
-            else if chatSession.messages.isEmpty {
-                HStack(spacing: 0) {
-                    Text("Chat with Claude. See ")
-                        .font(PreferencesManager.uiFont(size: 12))
-                        .foregroundColor(.secondary)
-                    Text("current context")
-                        .font(PreferencesManager.uiFont(size: 12))
-                        .foregroundColor(.accentColor)
-                        .underline()
-                        .onTapGesture { requestContextSummary() }
-                    Text(".")
-                        .font(PreferencesManager.uiFont(size: 12))
-                        .foregroundColor(.secondary)
-                }
+                .padding(.top, 28)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(12)
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            ForEach(chatSession.messages) { message in
-                                ChatBubbleView(message: message)
-                                    .id(message.id)
+                ZStack(alignment: .bottom) {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            if chatSession.messages.isEmpty {
+                                HStack(spacing: 0) {
+                                    Text("Chat with Claude. See ")
+                                        .font(PreferencesManager.uiFont(size: 12))
+                                        .foregroundColor(.secondary)
+                                    Text("current context")
+                                        .font(PreferencesManager.uiFont(size: 12))
+                                        .foregroundColor(.accentColor)
+                                        .underline()
+                                        .onTapGesture { requestContextSummary() }
+                                    Text(".")
+                                        .font(PreferencesManager.uiFont(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .padding(.top, 28)
+                            } else {
+                                LazyVStack(alignment: .leading, spacing: 8) {
+                                    ForEach(chatSession.messages) { message in
+                                        ChatBubbleView(message: message)
+                                            .id(message.id)
+                                    }
+                                }
+                                .padding(8)
+                                .padding(.top, 28)
+                                .padding(.bottom, 56)
                             }
                         }
-                        .padding(8)
-                    }
-                    .mask(
-                        VStack(spacing: 0) {
-                            // Top fade: messages dissolve into the top edge
-                            LinearGradient(
-                                stops: [
-                                    .init(color: .clear, location: 0),
-                                    .init(color: .black, location: 1)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                            .frame(height: 24)
+                        .background(OverlayScrollerStyle())
+                        .mask(
+                            VStack(spacing: 0) {
+                                LinearGradient(
+                                    stops: [
+                                        .init(color: .clear, location: 0),
+                                        .init(color: .black, location: 1)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                                .frame(height: 40)
 
-                            // Rest of the scroll area is fully visible
-                            Color.black
+                                Color.black
+                            }
+                        )
+                        .onChange(of: chatSession.messages.count) { _, _ in
+                            if let last = chatSession.messages.last {
+                                proxy.scrollTo(last.id, anchor: .bottom)
+                            }
                         }
-                    )
-                    .onChange(of: chatSession.messages.count) { _, _ in
-                        if let last = chatSession.messages.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
+                    }
+
+                    if hasApiKey {
+                        floatingInputBar
                     }
                 }
             }
+        }
+        .overlay(
+            ZStack {
+                if isDropTargeted {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.accentColor.opacity(0.12))
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                        .foregroundColor(Color.accentColor.opacity(0.5))
+                }
+            }
+        )
+        .onDrop(of: [.image, .fileURL], isTargeted: $isDropTargeted) { providers in
+            handleFileDrop(providers)
+        }
+    }
 
+    // MARK: - Floating Input Bar
+
+    @ViewBuilder
+    private var floatingInputBar: some View {
+        VStack(spacing: 0) {
             if let error = errorMessage {
                 Text(error)
                     .font(.caption)
@@ -139,8 +184,6 @@ struct AIChatView: View {
                     .padding(.vertical, 4)
             }
 
-            if hasApiKey {
-            // Pending attachments preview
             if !pendingAttachments.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -194,7 +237,6 @@ struct AIChatView: View {
                 }
             }
 
-            // Input area
             HStack(spacing: 8) {
                 TextField("Message...", text: $chatSession.pendingInput, axis: .vertical)
                     .textFieldStyle(.plain)
@@ -214,29 +256,30 @@ struct AIChatView: View {
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(nsColor: .textBackgroundColor).opacity(0.5))
+                    .fill(Color(nsColor: .textBackgroundColor).opacity(0.95))
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(Color.gray.opacity(0.2), lineWidth: 1)
                     )
             )
-            .padding(6)
-            } // end if hasApiKey
+            .padding(.leading, 6)
+            .padding(.trailing, 18)
+            .padding(.vertical, 6)
         }
-        .overlay(
-            ZStack {
-                if isDropTargeted {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.accentColor.opacity(0.12))
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                        .foregroundColor(Color.accentColor.opacity(0.5))
-                }
-            }
+        .background(
+            Rectangle().fill(.ultraThinMaterial)
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .black.opacity(0.5), location: 0.4),
+                            .init(color: .black.opacity(0.75), location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
         )
-        .onDrop(of: [.image, .fileURL], isTargeted: $isDropTargeted) { providers in
-            handleFileDrop(providers)
-        }
     }
 
     private func buildSystemPrompt() -> String {
