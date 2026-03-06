@@ -3,27 +3,28 @@
 import PackageDescription
 
 let package = Package(
-    name: "ClaudeTerm",
+    name: "GOAT",
     platforms: [
         .macOS(.v14)
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.2.0")
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.2.0"),
+        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.5.0")
     ],
     targets: [
         .executableTarget(
-            name: "ClaudeTerm",
-            dependencies: ["SwiftTerm"],
-            path: "ClaudeTerm",
+            name: "GOAT",
+            dependencies: ["SwiftTerm", "Sparkle"],
+            path: "GOAT",
             resources: [
-                .copy("Shell/claudeterm-integration.zsh"),
+                .copy("Shell/goat-integration.zsh"),
                 .copy("Resources/Assets.xcassets")
             ]
         ),
         .testTarget(
-            name: "ClaudeTermTests",
-            dependencies: ["ClaudeTerm"],
-            path: "ClaudeTermTests"
+            name: "GOATTests",
+            dependencies: ["GOAT"],
+            path: "GOATTests"
         )
     ]
 )

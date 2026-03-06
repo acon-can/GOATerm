@@ -1,4 +1,4 @@
-name: ClaudeTerm
+name: GOAT
 options:
   bundleIdPrefix: com.claudeterm
   deploymentTarget:
@@ -10,46 +10,50 @@ packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm.git
     from: "1.2.0"
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle.git
+    from: "2.5.0"
 
 targets:
-  ClaudeTerm:
+  GOAT:
     type: application
     platform: macOS
     sources:
-      - path: ClaudeTerm
+      - path: GOAT
         excludes:
           - "Shell/**"
           - "Resources/**"
+      - path: GOAT/Resources/Assets.xcassets
     resources:
-      - path: ClaudeTerm/Shell/claudeterm-integration.zsh
-      - path: ClaudeTerm/Resources/Assets.xcassets
+      - path: GOAT/Shell/goat-integration.zsh
     dependencies:
       - package: SwiftTerm
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.claudeterm.app
-        PRODUCT_NAME: Goat
+        PRODUCT_NAME: GOAT
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.9"
-        CODE_SIGN_ENTITLEMENTS: ClaudeTerm/ClaudeTerm.entitlements
-        INFOPLIST_FILE: ClaudeTerm/Info.plist
+        CODE_SIGN_ENTITLEMENTS: GOAT/GOAT.entitlements
+        INFOPLIST_FILE: GOAT/Info.plist
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         CODE_SIGN_IDENTITY: "-"
         ENABLE_APP_SANDBOX: "NO"
         COMBINE_HIDPI_IMAGES: "YES"
     entitlements:
-      path: ClaudeTerm/ClaudeTerm.entitlements
+      path: GOAT/GOAT.entitlements
       properties:
         com.apple.security.app-sandbox: false
 
-  ClaudeTermTests:
+  GOATTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: ClaudeTermTests
+      - path: GOATTests
     dependencies:
-      - target: ClaudeTerm
+      - target: GOAT
     settings:
       base:
         SWIFT_VERSION: "5.9"
