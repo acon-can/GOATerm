@@ -117,6 +117,10 @@ struct BottomPanelView: View {
 
                     Button(action: {
                         file.save()
+                        let name = (file.path as NSString).lastPathComponent
+                        if name == "CLAUDE.md" || name == "settings.json" || name == "settings.local.json" {
+                            EnvironmentEditorState.promptClaudeCodeRestart()
+                        }
                     }) {
                         Text("Save")
                             .font(PreferencesManager.uiFont(size: 10))
@@ -132,9 +136,13 @@ struct BottomPanelView: View {
                    let tab = windowState.activeTab {
                     EnvironmentDirtyButtons(
                         envState: tab.envEditorState,
-                        serverStore: tab.serverStore,
-                        currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
-                        onSwitchToServers: { windowState.bottomPanelMode = .servers }
+                        afterSave: {
+                            EnvironmentEditorState.promptServerRestart(
+                                serverStore: tab.serverStore,
+                                currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
+                                onSwitchToServers: { windowState.bottomPanelMode = .servers }
+                            )
+                        }
                     )
                 }
 
@@ -178,9 +186,9 @@ struct BottomPanelView: View {
                    let tab = windowState.activeTab {
                     EnvironmentDirtyButtons(
                         envState: tab.settingsEditorState,
-                        serverStore: tab.serverStore,
-                        currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
-                        onSwitchToServers: { windowState.bottomPanelMode = .servers }
+                        afterSave: {
+                            EnvironmentEditorState.promptClaudeCodeRestart()
+                        }
                     )
                 }
 

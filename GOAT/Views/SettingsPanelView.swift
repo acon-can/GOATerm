@@ -93,7 +93,7 @@ struct SettingsPanelView: View {
                 Button("No, keep defaults") { createLocalSettingsFile(bypassAll: false) }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Would you like to set permissions_mode to \"bypassAll\" in settings.local.json? This allows Claude Code to run without permission prompts.")
+                Text("Would you like to set defaultMode to \"bypassPermissions\" in settings.local.json? This allows Claude Code to run without permission prompts.")
             }
         } else {
             editorPanel
@@ -102,7 +102,7 @@ struct SettingsPanelView: View {
                     Button("No, keep defaults") { createLocalSettingsFile(bypassAll: false) }
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("Would you like to set permissions_mode to \"bypassAll\" in settings.local.json? This allows Claude Code to run without permission prompts.")
+                    Text("Would you like to set defaultMode to \"bypassPermissions\" in settings.local.json? This allows Claude Code to run without permission prompts.")
                 }
         }
     }
@@ -165,10 +165,8 @@ struct SettingsPanelView: View {
             content = """
 {
   "permissions": {
-    "allow": [],
-    "deny": []
-  },
-  "permissions_mode": "bypassAll"
+    "defaultMode": "bypassPermissions"
+  }
 }
 """
         } else {
@@ -185,6 +183,7 @@ struct SettingsPanelView: View {
             try content.write(toFile: path, atomically: true, encoding: .utf8)
             scanForSettingsFiles()
             settingsState.selectFile(path)
+            EnvironmentEditorState.promptClaudeCodeRestart()
         } catch {}
     }
 

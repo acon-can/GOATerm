@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 enum BottomPanelMode: String, CaseIterable {
     case chat = "Chat"
@@ -27,6 +28,10 @@ final class WindowState {
     var showSaveWorkspace: Bool = false
     var showWorkspaceManager: Bool = false
     private var backlogCache: [String: BacklogStore] = [:]
+    private var backlogCacheOrder: [String] = []
+    private static let maxCacheSize = 10
+    private var pendingSaveWorkItem: DispatchWorkItem?
+    private let saveDebounceInterval: TimeInterval = 0.5
     var isBacklogVisible: Bool = true {
         didSet { UserDefaults.standard.set(isBacklogVisible, forKey: "panelBacklogVisible") }
     }
@@ -118,23 +123,58 @@ final class WindowState {
             if let cached = backlogCache[dir] {
                 return cached
             }
+            // Load and cache — done outside the getter's observation tracking
+            // by deferring the mutation to avoid cascading @Observable notifications.
             let store = BacklogFileService.shared.load(from: dir)
-            backlogCache[dir] = store
+            DispatchQueue.main.async { [self] in
+                self.cacheBacklogStore(store, for: dir)
+            }
             return store
         }
         set {
             let dir = activeTerminalDirectory
-            backlogCache[dir] = newValue
+            cacheBacklogStore(newValue, for: dir)
+        }
+    }
+
+    private func cacheBacklogStore(_ store: BacklogStore, for directory: String) {
+        backlogCache[directory] = store
+        // Maintain LRU order and evict old entries
+        backlogCacheOrder.removeAll { $0 == directory }
+        backlogCacheOrder.append(directory)
+        while backlogCacheOrder.count > Self.maxCacheSize {
+            let evicted = backlogCacheOrder.removeFirst()
+            backlogCache.removeValue(forKey: evicted)
+            DiagnosticLogger.shared.backlog.info("Evicted backlog cache for: \(evicted, privacy: .public)")
         }
     }
 
     func saveActiveBacklog() {
-        BacklogFileService.shared.save(activeBacklog)
+        debouncedSave(activeBacklog)
     }
 
     func saveBacklog(for directory: String) {
         guard let store = backlogCache[directory] else { return }
-        BacklogFileService.shared.save(store)
+        debouncedSave(store)
+    }
+
+    private func debouncedSave(_ store: BacklogStore) {
+        pendingSaveWorkItem?.cancel()
+        // Debounce fires on main thread so serialize() can safely read
+        // @Observable properties; only the file I/O moves to background.
+        let workItem = DispatchWorkItem { [store] in
+            let log = DiagnosticLogger.shared
+            log.trackRate("backlogSave", threshold: 10, windowSeconds: 10, logger: log.fileIO)
+            if log.isVerbose {
+                log.fileIO.debug("Saving backlog for: \(store.directory ?? "unknown", privacy: .public)")
+            }
+            BacklogFileService.shared.save(store)
+        }
+        pendingSaveWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + saveDebounceInterval,
+            execute: workItem
+        )
     }
 
     // MARK: - Tab Operations
@@ -148,13 +188,9 @@ final class WindowState {
 
     func closeTab(id: UUID) {
         guard tabs.count > 1 else { return }
-        if let index = tabs.firstIndex(where: { $0.id == id }) {
-            tabs.remove(at: index)
-            if activeTabId == id {
-                let newIndex = min(index, tabs.count - 1)
-                activeTabId = tabs[newIndex].id
-            }
-        }
+        guard let tab = tabs.first(where: { $0.id == id }) else { return }
+        guard confirmCloseIfNeeded(sessions: tab.allSessions) else { return }
+        performCloseTab(id: id)
     }
 
     func closeActiveTab() {
@@ -163,8 +199,21 @@ final class WindowState {
     }
 
     func closeOtherTabs(keepingId: UUID) {
+        let sessionsToClose = tabs.filter { $0.id != keepingId }.flatMap { $0.allSessions }
+        guard confirmCloseIfNeeded(sessions: sessionsToClose) else { return }
         tabs.removeAll { $0.id != keepingId }
         activeTabId = keepingId
+    }
+
+    private func performCloseTab(id: UUID) {
+        guard tabs.count > 1 else { return }
+        if let index = tabs.firstIndex(where: { $0.id == id }) {
+            tabs.remove(at: index)
+            if activeTabId == id {
+                let newIndex = min(index, tabs.count - 1)
+                activeTabId = tabs[newIndex].id
+            }
+        }
     }
 
     func switchToTab(at index: Int) {
@@ -240,9 +289,14 @@ final class WindowState {
     func closeActivePane() {
         guard let tab = activeTab,
               let sessionId = tab.focusedSessionId else { return }
+        // Check for running processes in the pane being closed
+        if let session = tab.allSessions.first(where: { $0.id == sessionId }) {
+            guard confirmCloseIfNeeded(sessions: [session]) else { return }
+        }
         if !tab.closePane(sessionId: sessionId) {
-            // Last pane in tab - close the tab
-            closeActiveTab()
+            // Last pane in tab - close the tab (already confirmed above)
+            guard let id = activeTabId else { return }
+            performCloseTab(id: id)
         }
     }
 
@@ -258,5 +312,30 @@ final class WindowState {
               let currentId = tab.focusedSessionId,
               let prev = tab.previousSession(before: currentId) else { return }
         tab.focusedSessionId = prev.id
+    }
+
+    // MARK: - Close Confirmation
+
+    /// Returns true if the user confirms or no processes are running.
+    private func confirmCloseIfNeeded(sessions: [TerminalSession]) -> Bool {
+        let running = sessions.filter { $0.runningCommand != nil }
+        guard !running.isEmpty else { return true }
+
+        let commands = running.compactMap { $0.runningCommand }
+        let informative: String
+        if commands.count == 1 {
+            informative = "\"\(commands[0])\" is still running. Closing will terminate it."
+        } else {
+            informative = "\(commands.count) processes are still running. Closing will terminate them."
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Close terminal?"
+        alert.informativeText = informative
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Close")
+        alert.addButton(withTitle: "Cancel")
+
+        return alert.runModal() == .alertFirstButtonReturn
     }
 }

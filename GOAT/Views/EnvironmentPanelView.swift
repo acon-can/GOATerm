@@ -140,9 +140,7 @@ struct EnvironmentPanelView: View {
 
 struct EnvironmentDirtyButtons: View {
     @Bindable var envState: EnvironmentEditorState
-    @Bindable var serverStore: ServerStore
-    let currentDirectory: String
-    let onSwitchToServers: () -> Void
+    var afterSave: (() -> Void)?
 
     var body: some View {
         if envState.isDirty {
@@ -155,7 +153,7 @@ struct EnvironmentDirtyButtons: View {
             .help("Discard changes")
 
             Button(action: {
-                envState.save(serverStore: serverStore, currentDirectory: currentDirectory, onSwitchToServers: onSwitchToServers)
+                envState.save(afterSave: afterSave)
             }) {
                 Text("Save")
                     .font(PreferencesManager.uiFont(size: 10))

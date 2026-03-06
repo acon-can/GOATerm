@@ -98,6 +98,7 @@ struct BulletRowView: View {
     var onSave: () -> Void
     var focusedField: FocusState<BacklogField?>.Binding
     var isBug: Bool = false
+    var onTextChange: (() -> Void)?
     private let prefs = PreferencesManager.shared
 
     private var isEditing: Bool {
@@ -125,7 +126,7 @@ struct BulletRowView: View {
             TextField("Enter prompt...", text: $bullet.text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(prefs.backlogFont)
-                .lineLimit(nil)
+                .lineLimit(1...)
                 .padding(.horizontal, isEditing ? 4 : 0)
                 .padding(.vertical, isEditing ? 2 : 0)
                 .background(
@@ -155,6 +156,9 @@ struct BulletRowView: View {
                         withAnimation(.easeInOut(duration: 0.25)) { onDelete() }
                     }
                 }
+                .onChange(of: bullet.text) { _, _ in
+                    if isEditing { onTextChange?() }
+                }
 
             // Copy button
             Button(action: {
@@ -170,12 +174,71 @@ struct BulletRowView: View {
             .visibleOnRowHover()
             .help("Copy bullet text")
         }
-        .padding(.vertical, 1)
+        .padding(.vertical, 2)
         .padding(.leading, 6)
+        .padding(.trailing, 4)
+        .background(RowHoverBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 4))
         .hoverReveal()
         .contextMenu {
             Button("Delete Bullet", role: .destructive) { onDelete() }
         }
+    }
+}
+
+// MARK: - Row Hover Background
+
+private struct RowHoverBackground: View {
+    @Environment(\.isRowHovered) private var isRowHovered
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(colorScheme == .dark
+                  ? Color.white.opacity(isRowHovered ? 0.06 : 0)
+                  : Color.black.opacity(isRowHovered ? 0.05 : 0))
+            .animation(.easeInOut(duration: 0.15), value: isRowHovered)
+    }
+}
+
+// MARK: - Add Prompt Button
+
+struct AddPromptButtonView: View {
+    let prefs: PreferencesManager
+    let action: () -> Void
+    @State private var isHovered = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "plus")
+                    .font(prefs.backlogFont)
+                Text("Add prompt")
+                    .font(prefs.backlogFont)
+            }
+            .foregroundColor(.accentColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(colorScheme == .dark
+                          ? Color.white.opacity(isHovered ? 0.08 : 0)
+                          : Color.black.opacity(isHovered ? 0.06 : 0))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.accentColor.opacity(isHovered ? 0.3 : 0), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
+        .padding(.vertical, 1)
+        .padding(.leading, 2)
     }
 }
 

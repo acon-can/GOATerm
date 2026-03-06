@@ -122,7 +122,7 @@ struct TerminalDropOverlay: NSViewRepresentable {
     func makeNSView(context: Context) -> DropOverlayNSView {
         let view = DropOverlayNSView()
         view.sessionId = sessionId
-        view.registerForDraggedTypes([.fileURL])
+        view.registerForDraggedTypes([.fileURL, .png, .tiff])
         return view
     }
 
@@ -143,7 +143,6 @@ class DropOverlayNSView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        // Reset drag state on window changes to prevent stuck highlights
         if isDragActive {
             isDragActive = false
             needsDisplay = true
@@ -151,14 +150,14 @@ class DropOverlayNSView: NSView {
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard hasFileURLs(sender) else { return [] }
+        guard hasSupportedContent(sender) else { return [] }
         isDragActive = true
         needsDisplay = true
         return .copy
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard hasFileURLs(sender) else { return [] }
+        guard hasSupportedContent(sender) else { return [] }
         return .copy
     }
 
@@ -171,17 +170,27 @@ class DropOverlayNSView: NSView {
         isDragActive = false
         needsDisplay = true
 
-        guard let sessionId = sessionId,
-              let items = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [
-                  .urlReadingFileURLsOnly: true
-              ]) as? [URL],
-              !items.isEmpty else {
-            return false
+        guard let sessionId = sessionId else { return false }
+
+        var paths: [String] = []
+
+        // 1. Collect file URLs
+        if let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [
+            .urlReadingFileURLsOnly: true
+        ]) as? [URL] {
+            for url in urls {
+                paths.append(url.path.contains(" ") ? "\"\(url.path)\"" : url.path)
+            }
         }
 
-        let paths = items.map { url in
-            url.path.contains(" ") ? "\"\(url.path)\"" : url.path
+        // 2. If no file URLs, check for raw image data (e.g. dragged from browser/Preview)
+        if paths.isEmpty, let imageData = imageDataFromPasteboard(sender.draggingPasteboard) {
+            if let tempPath = saveTempImage(imageData) {
+                paths.append(tempPath)
+            }
         }
+
+        guard !paths.isEmpty else { return false }
         TerminalPaneView.Coordinator.coordinators[sessionId]?.sendText(paths.joined(separator: " "))
         return true
     }
@@ -192,7 +201,6 @@ class DropOverlayNSView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        // Always clear to prevent stale content in layer-backed views
         NSColor.clear.setFill()
         bounds.fill(using: .copy)
 
@@ -211,12 +219,42 @@ class DropOverlayNSView: NSView {
         }
     }
 
-    private func hasFileURLs(_ sender: NSDraggingInfo) -> Bool {
-        guard let items = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [
-            .urlReadingFileURLsOnly: true
-        ]) as? [URL] else {
-            return false
+    private func hasSupportedContent(_ sender: NSDraggingInfo) -> Bool {
+        let pb = sender.draggingPasteboard
+        if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
+            return true
         }
-        return !items.isEmpty
+        // Accept raw image data (dragged from browsers, image editors, etc.)
+        if pb.data(forType: .png) != nil || pb.data(forType: .tiff) != nil {
+            return true
+        }
+        return false
+    }
+
+    private func imageDataFromPasteboard(_ pb: NSPasteboard) -> Data? {
+        // Prefer PNG, fall back to TIFF → convert to PNG
+        if let png = pb.data(forType: .png) {
+            return png
+        }
+        if let tiff = pb.data(forType: .tiff),
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            return png
+        }
+        return nil
+    }
+
+    private func saveTempImage(_ data: Data) -> String? {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("goat-drops", isDirectory: true)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let fileName = "drop-\(UUID().uuidString.prefix(8)).png"
+        let fileURL = tempDir.appendingPathComponent(fileName)
+        do {
+            try data.write(to: fileURL)
+            return fileURL.path
+        } catch {
+            return nil
+        }
     }
 }

@@ -5,6 +5,7 @@ final class BacklogFileService {
     private init() {}
 
     private let fileName = "backlog.goat.md"
+    private let saveQueue = DispatchQueue(label: "dev.getGOAT.backlog.save")
 
     // MARK: - Load
 
@@ -28,22 +29,27 @@ final class BacklogFileService {
 
     func save(_ store: BacklogStore) {
         guard let directory = store.directory else { return }
-        let filePath = (directory as NSString).appendingPathComponent(fileName)
+        // Serialize on the calling thread (must read @Observable properties
+        // from the thread that set them — but the caller dispatches to a
+        // background queue, so we serialize here before the file I/O).
         let content = serialize(store)
-
-        // Don't write empty backlogs — delete the file if it exists
         let hasContent = store.featureBoards.contains { !$0.bullets.isEmpty }
             || store.bugBoards.contains { !$0.bullets.isEmpty }
-        if !hasContent {
-            try? FileManager.default.removeItem(atPath: filePath)
-            return
-        }
+        let filePath = (directory as NSString).appendingPathComponent(fileName)
 
-        if let data = content.data(using: .utf8) {
-            let url = URL(fileURLWithPath: filePath)
-            try? data.write(to: url, options: .atomic)
+        // File I/O on a dedicated serial queue to avoid blocking the main thread
+        // and to serialize concurrent writes to the same file.
+        saveQueue.async { [self] in
+            if !hasContent {
+                try? FileManager.default.removeItem(atPath: filePath)
+                return
+            }
+            if let data = content.data(using: .utf8) {
+                let url = URL(fileURLWithPath: filePath)
+                try? data.write(to: url, options: .atomic)
+            }
+            self.updateGitignore(in: directory)
         }
-        updateGitignore(in: directory)
     }
 
     // MARK: - .gitignore
@@ -104,16 +110,55 @@ final class BacklogFileService {
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
 
-            // Skip multi-line HTML comments
-            if trimmed.contains("<!--") && trimmed.contains("-->") && !trimmed.hasPrefix("<!-- color:") {
-                continue  // single-line comment (not a color directive)
-            }
-            if trimmed.contains("<!--") {
-                inComment = true
-                continue
-            }
+            // Skip lines inside multi-line HTML comments (e.g. the file header).
+            // This must be checked before bullets because the header comment
+            // contains example bullet lines like "- [ ] item".
             if inComment {
                 if trimmed.contains("-->") { inComment = false }
+                continue
+            }
+
+            // Detect comment opening — single-line comments and multi-line starts.
+            // Color directives (<!-- color: ... -->) are handled later and excluded.
+            if trimmed.contains("<!--") {
+                if trimmed.contains("-->") {
+                    // Single-line comment — skip unless it's a color directive
+                    if !trimmed.hasPrefix("<!-- color:") { continue }
+                } else {
+                    // Multi-line comment start
+                    inComment = true
+                    continue
+                }
+            }
+
+            // Checkbox bullets — checked before structural markers (# , ## )
+            // so that bullet text containing those patterns is never
+            // misinterpreted as structure.
+            if trimmed.hasPrefix("- [") {
+                let status: ItemStatus
+                let textStart: String.Index
+
+                if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") {
+                    status = .done
+                    textStart = trimmed.index(trimmed.startIndex, offsetBy: 6)
+                } else if trimmed.hasPrefix("- [/] ") {
+                    status = .inProgress
+                    textStart = trimmed.index(trimmed.startIndex, offsetBy: 6)
+                } else if trimmed.hasPrefix("- [ ] ") {
+                    status = .default
+                    textStart = trimmed.index(trimmed.startIndex, offsetBy: 6)
+                } else {
+                    continue
+                }
+
+                let text = String(trimmed[textStart...])
+                let bullet = Bullet(text: text, status: status)
+
+                if currentBoard == nil {
+                    let defaultName = currentCategory == .bugs ? "Bugs" : "Features"
+                    currentBoard = KanbanBoard(name: defaultName)
+                }
+                currentBoard?.bullets.append(bullet)
                 continue
             }
 
@@ -168,35 +213,6 @@ final class BacklogFileService {
                 continue
             }
 
-            // Checkbox bullets
-            if trimmed.hasPrefix("- [") {
-                let status: ItemStatus
-                let textStart: String.Index
-
-                if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") {
-                    status = .done
-                    textStart = trimmed.index(trimmed.startIndex, offsetBy: 6)
-                } else if trimmed.hasPrefix("- [/] ") {
-                    status = .inProgress
-                    textStart = trimmed.index(trimmed.startIndex, offsetBy: 6)
-                } else if trimmed.hasPrefix("- [ ] ") {
-                    status = .default
-                    textStart = trimmed.index(trimmed.startIndex, offsetBy: 6)
-                } else {
-                    continue
-                }
-
-                let text = String(trimmed[textStart...])
-                let bullet = Bullet(text: text, status: status)
-
-                if currentBoard == nil {
-                    // Create a default board if we see bullets before any ## header
-                    let defaultName = currentCategory == .bugs ? "Bugs" : "Features"
-                    currentBoard = KanbanBoard(name: defaultName)
-                }
-                currentBoard?.bullets.append(bullet)
-                continue
-            }
         }
 
         // Save last board
@@ -252,7 +268,7 @@ final class BacklogFileService {
             }
             for bullet in board.bullets where bullet.status != .deleted {
                 let checkbox = checkboxString(for: bullet.status)
-                lines.append("- [\(checkbox)] \(bullet.text)")
+                lines.append("- [\(checkbox)] \(sanitizeBulletText(bullet.text))")
             }
             lines.append("")
         }
@@ -267,12 +283,35 @@ final class BacklogFileService {
             }
             for bullet in board.bullets where bullet.status != .deleted {
                 let checkbox = checkboxString(for: bullet.status)
-                lines.append("- [\(checkbox)] \(bullet.text)")
+                lines.append("- [\(checkbox)] \(sanitizeBulletText(bullet.text))")
             }
             lines.append("")
         }
 
         return lines.joined(separator: "\n")
+    }
+
+    /// Sanitizes bullet text for safe markdown serialization.
+    /// - Collapses newlines to spaces (bullets are single-line in the markdown format)
+    /// - Strips control characters that could cause rendering issues
+    private func sanitizeBulletText(_ text: String) -> String {
+        var result = text
+        // Collapse all newlines/carriage returns to spaces
+        result = result.replacingOccurrences(of: "\r\n", with: " ")
+        result = result.replacingOccurrences(of: "\n", with: " ")
+        result = result.replacingOccurrences(of: "\r", with: " ")
+        // Strip control characters (except normal space/tab)
+        result = String(result.map { ch in
+            if ch.asciiValue != nil && ch.asciiValue! < 32 && ch != "\t" {
+                return Character(" ")
+            }
+            return ch
+        })
+        // Collapse runs of whitespace
+        while result.contains("  ") {
+            result = result.replacingOccurrences(of: "  ", with: " ")
+        }
+        return result.trimmingCharacters(in: .whitespaces)
     }
 
     private func checkboxString(for status: ItemStatus) -> String {

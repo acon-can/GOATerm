@@ -175,6 +175,11 @@ struct WindowConfigurator: NSViewRepresentable {
 
 struct MainWindowView: View {
     @Bindable var windowState: WindowState
+    private let prefs = PreferencesManager.shared
+
+    private var activeTerminalColor: TerminalColor {
+        windowState.activeTab?.focusedSession?.color ?? .default
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -249,9 +254,22 @@ struct MainWindowView: View {
             .padding(.trailing, 6)
         }
         .ignoresSafeArea(.container, edges: .top)
+        .background {
+            if prefs.dynamicWindowColor && activeTerminalColor != .default {
+                activeTerminalColor.swiftUIColor
+                    .opacity(0.06)
+                    .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 0.4), value: activeTerminalColor)
+            }
+        }
         .background(WindowConfigurator())
         .onChange(of: windowState.activeTerminalDirectory) { oldDir, newDir in
             guard oldDir != newDir else { return }
+            let log = DiagnosticLogger.shared
+            log.trackRate("activeTerminalDirectoryChange", threshold: 5, windowSeconds: 3, logger: log.observation)
+            if log.isVerbose {
+                log.observation.debug("Directory changed: \(oldDir, privacy: .public) → \(newDir, privacy: .public)")
+            }
             windowState.saveBacklog(for: oldDir)
         }
         .onChange(of: windowState.activeTabId) { _, _ in

@@ -96,7 +96,10 @@ struct KanbanColumnView: View {
     @FocusState private var focusedField: BacklogField?
     @FocusState private var isNameFieldFocused: Bool
     @State private var hiddenBulletIds: Set<UUID> = []
+    @State private var scrollTarget: UUID?
     private let prefs = PreferencesManager.shared
+    // Stable timer — avoids creating new Timer.Publisher on every body evaluation
+    private let cleanupTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
     private var visibleBullets: [Bullet] {
         if !hideCompleted { return board.bullets }
@@ -134,7 +137,7 @@ struct KanbanColumnView: View {
                 hiddenBulletIds = Set(board.bullets.filter { $0.isHideable }.map { $0.id })
             }
         }
-        .onReceive(Timer.publish(every: 5, on: .main, in: .common).autoconnect()) { _ in
+        .onReceive(cleanupTimer) { _ in
             // Auto-delete bullets that have been in deleted state for 5+ seconds
             let deletable = board.bullets.filter { $0.isDeletable }
             if !deletable.isEmpty {
@@ -156,6 +159,10 @@ struct KanbanColumnView: View {
             // Save when focus leaves a bullet field
             if old != nil && new == nil {
                 onSave?()
+            }
+            // Scroll to newly focused bullet
+            if case .bulletText(let id) = new {
+                scrollTarget = id
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .bottomPanelTapped)) { _ in
@@ -264,80 +271,67 @@ struct KanbanColumnView: View {
 
     @ViewBuilder
     private var addPromptButton: some View {
-        HStack(alignment: .top, spacing: 4) {
-            // Plus icon — same wrapper as status icon button
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    let newId = board.addBullet()
-                    focusedField = .bulletText(newId)
-                }
-            }) {
-                Image(systemName: "plus")
-                    .font(prefs.backlogFont)
-                    .foregroundColor(.accentColor)
+        AddPromptButtonView(prefs: prefs) {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                let newId = board.addBullet()
+                focusedField = .bulletText(newId)
             }
-            .buttonStyle(HoverButtonStyle())
-
-            // Placeholder text — same position as TextField in BulletRowView
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    let newId = board.addBullet()
-                    focusedField = .bulletText(newId)
-                }
-            }) {
-                Text("Add prompt")
-                    .font(prefs.backlogFont)
-                    .foregroundColor(.accentColor)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
         }
-        .padding(.vertical, 1)
-        .padding(.leading, 6)
     }
 
     // MARK: - Bullet List
 
     @ViewBuilder
     private var bulletList: some View {
-        ScrollView {
-            LazyVStack(spacing: 2) {
-                ForEach(visibleBullets) { bullet in
-                    BulletRowView(
-                        bullet: bullet,
-                        board: board,
-                        onDelete: {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                board.removeBullet(id: bullet.id)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(visibleBullets) { bullet in
+                        BulletRowView(
+                            bullet: bullet,
+                            board: board,
+                            onDelete: {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    board.removeBullet(id: bullet.id)
+                                }
+                            },
+                            onSave: onSave ?? {},
+                            focusedField: $focusedField,
+                            isBug: store.activeCategory == .bugs,
+                            onTextChange: {
+                                scrollTarget = bullet.id
                             }
-                        },
-                        onSave: onSave ?? {},
-                        focusedField: $focusedField,
-                        isBug: store.activeCategory == .bugs
-                    )
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .move(edge: .top)),
-                        removal: .opacity
-                    ))
-                    .onDrag {
-                        draggedBullet = bullet
-                        return NSItemProvider(object: bullet.id.uuidString as NSString)
+                        )
+                        .modifier(CompletionFade(isDone: bullet.status == .done, hideCompleted: hideCompleted))
+                        .id(bullet.id)
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .top)),
+                            removal: .opacity
+                        ))
+                        .onDrag {
+                            draggedBullet = bullet
+                            return NSItemProvider(object: bullet.id.uuidString as NSString)
+                        }
+                        .onDrop(of: [.text], delegate: BoardBulletDropDelegate(
+                            bullet: bullet,
+                            board: board,
+                            draggedBullet: $draggedBullet
+                        ))
                     }
-                    .onDrop(of: [.text], delegate: BoardBulletDropDelegate(
-                        bullet: bullet,
-                        board: board,
-                        draggedBullet: $draggedBullet
-                    ))
-                }
 
-                // Add prompt button
-                addPromptButton
+                    // Add prompt button
+                    addPromptButton
+                }
+                .padding(8)
             }
-            .padding(8)
-        }
-        .background(Color(nsColor: .controlBackgroundColor))
-        .onTapGesture {
-            focusedField = nil
+            .background(Color(nsColor: .controlBackgroundColor))
+            .onChange(of: scrollTarget) { _, target in
+                guard let target else { return }
+                withAnimation {
+                    proxy.scrollTo(target, anchor: .bottom)
+                }
+                scrollTarget = nil
+            }
         }
     }
 
@@ -405,5 +399,29 @@ struct KanbanColumnView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+    }
+}
+
+// MARK: - Completion Fade
+
+private struct CompletionFade: ViewModifier {
+    let isDone: Bool
+    let hideCompleted: Bool
+    @State private var opacity: Double = 1.0
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(opacity)
+            .onChange(of: isDone) { _, done in
+                if done && hideCompleted {
+                    withAnimation(.easeIn(duration: 14)) {
+                        opacity = 0
+                    }
+                } else if !done {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        opacity = 1
+                    }
+                }
+            }
     }
 }

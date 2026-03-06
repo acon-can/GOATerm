@@ -182,7 +182,7 @@ struct ServerRowView: View {
                     .font(PreferencesManager.uiFont(size: 11, weight: .medium))
                     .lineLimit(1)
                 if let port = server.detectedPort {
-                    Text(":\(port)")
+                    Text(verbatim: ":\(port)")
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundColor(.secondary)
                 }

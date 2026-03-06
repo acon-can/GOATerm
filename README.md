@@ -161,7 +161,6 @@ GOAT/
 │   │   ├── APIKeyManager.swift        # Keychain-based API key storage
 │   │   ├── BacklogFileService.swift   # backlog.goat.md parser/serializer
 │   │   ├── ClaudeAPIService.swift     # Anthropic API streaming client
-│   │   ├── ClaudeCodeHistoryService.swift
 │   │   ├── ClaudeProjectService.swift # CLAUDE.md read/write
 │   │   ├── DevServerService.swift     # Dev server process management
 │   │   ├── GitHubPollingService.swift # GitHub status polling
@@ -169,7 +168,6 @@ GOAT/
 │   │   ├── GitService.swift           # Local git operations
 │   │   ├── GoatActionParser.swift     # Parses goat-action blocks from AI responses
 │   │   ├── NotificationService.swift  # macOS notification permissions
-│   │   ├── PromptHistoryService.swift # Chat prompt history logging
 │   │   ├── PTYManager.swift           # PTY allocation
 │   │   ├── ServerDiscoveryService.swift
 │   │   ├── SessionRestorationService.swift
@@ -193,7 +191,6 @@ GOAT/
 │   │   ├── KanbanBoardView.swift
 │   │   ├── MainWindowView.swift       # Root window layout
 │   │   ├── PreferencesView.swift      # Settings window (General, Appearance, Chat Context, API, About)
-│   │   ├── PromptHistoryView.swift
 │   │   ├── SettingsPanelView.swift
 │   │   ├── SplitContainerView.swift   # Recursive split pane container
 │   │   ├── Styles.swift               # Shared SwiftUI styles

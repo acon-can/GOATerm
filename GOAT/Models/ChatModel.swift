@@ -5,22 +5,48 @@ enum ChatRole: String {
     case assistant
 }
 
+struct ChatAttachment: Identifiable {
+    let id = UUID()
+    let data: Data
+    let mediaType: String
+    let fileName: String?
+    let fileText: String?
+
+    var isImage: Bool { mediaType.hasPrefix("image/") }
+    var isPDF: Bool { mediaType == "application/pdf" }
+    var isTextFile: Bool { fileText != nil }
+}
+
 @Observable
 final class ChatMessage: Identifiable {
     let id: UUID
     let role: ChatRole
     var content: String
     let timestamp: Date
-    var imageData: Data?
-    var imageMediaType: String?
+    var attachments: [ChatAttachment]
+
+    // Legacy single-image accessors for API compatibility
+    var imageData: Data? { attachments.first(where: { !$0.isTextFile })?.data }
+    var imageMediaType: String? { attachments.first(where: { !$0.isTextFile })?.mediaType }
 
     init(id: UUID = UUID(), role: ChatRole, content: String, timestamp: Date = Date(), imageData: Data? = nil, imageMediaType: String? = nil) {
         self.id = id
         self.role = role
         self.content = content
         self.timestamp = timestamp
-        self.imageData = imageData
-        self.imageMediaType = imageMediaType
+        if let data = imageData, let type = imageMediaType {
+            self.attachments = [ChatAttachment(data: data, mediaType: type, fileName: nil, fileText: nil)]
+        } else {
+            self.attachments = []
+        }
+    }
+
+    init(id: UUID = UUID(), role: ChatRole, content: String, timestamp: Date = Date(), attachments: [ChatAttachment] = []) {
+        self.id = id
+        self.role = role
+        self.content = content
+        self.timestamp = timestamp
+        self.attachments = attachments
     }
 }
 

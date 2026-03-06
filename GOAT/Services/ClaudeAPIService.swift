@@ -22,7 +22,7 @@ final class ClaudeAPIService {
     private init() {}
 
     func sendMessage(
-        messages: [(role: String, content: String, imageData: Data?, imageMediaType: String?)],
+        messages: [(role: String, content: String, attachments: [ChatAttachment])],
         systemPrompt: String? = nil,
         onToken: @escaping (String) -> Void
     ) async throws {
@@ -31,30 +31,28 @@ final class ClaudeAPIService {
         }
 
         let apiMessages: [[String: Any]] = messages.map { msg in
-            if let fileData = msg.imageData, let mediaType = msg.imageMediaType {
-                var contentBlocks: [[String: Any]]
-                if mediaType == "application/pdf" {
-                    contentBlocks = [
-                        [
+            let mediaAttachments = msg.attachments.filter { !$0.isTextFile }
+            if !mediaAttachments.isEmpty {
+                var contentBlocks: [[String: Any]] = mediaAttachments.map { attachment in
+                    if attachment.isPDF {
+                        return [
                             "type": "document",
                             "source": [
                                 "type": "base64",
-                                "media_type": mediaType,
-                                "data": fileData.base64EncodedString()
+                                "media_type": attachment.mediaType,
+                                "data": attachment.data.base64EncodedString()
                             ]
-                        ]
-                    ]
-                } else {
-                    contentBlocks = [
-                        [
+                        ] as [String: Any]
+                    } else {
+                        return [
                             "type": "image",
                             "source": [
                                 "type": "base64",
-                                "media_type": mediaType,
-                                "data": fileData.base64EncodedString()
+                                "media_type": attachment.mediaType,
+                                "data": attachment.data.base64EncodedString()
                             ]
-                        ]
-                    ]
+                        ] as [String: Any]
+                    }
                 }
                 if !msg.content.isEmpty {
                     contentBlocks.append(["type": "text", "text": msg.content])

@@ -21,13 +21,13 @@ final class EnvironmentEditorState {
         isDirty = false
     }
 
-    func save(serverStore: ServerStore, currentDirectory: String, onSwitchToServers: @escaping () -> Void) {
+    func save(afterSave: (() -> Void)? = nil) {
         guard let path = selectedFile else { return }
         do {
             try editorContent.write(toFile: path, atomically: true, encoding: .utf8)
             originalContent = editorContent
             isDirty = false
-            promptServerRestart(serverStore: serverStore, currentDirectory: currentDirectory, onSwitchToServers: onSwitchToServers)
+            afterSave?()
         } catch {}
     }
 
@@ -41,7 +41,7 @@ final class EnvironmentEditorState {
         isDirty = editorContent != originalContent
     }
 
-    private func promptServerRestart(serverStore: ServerStore, currentDirectory: String, onSwitchToServers: @escaping () -> Void) {
+    static func promptServerRestart(serverStore: ServerStore, currentDirectory: String, onSwitchToServers: @escaping () -> Void) {
         let runningServers = serverStore.servers.filter { $0.status == .running || $0.status == .starting }
         guard !runningServers.isEmpty else { return }
 
@@ -61,6 +61,15 @@ final class EnvironmentEditorState {
             }
             onSwitchToServers()
         }
+    }
+
+    static func promptClaudeCodeRestart() {
+        let alert = NSAlert()
+        alert.messageText = "Settings file saved"
+        alert.informativeText = "Restart Claude Code in your terminal for changes to take effect."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }
 

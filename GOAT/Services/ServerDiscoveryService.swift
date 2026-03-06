@@ -29,8 +29,8 @@ final class ServerDiscoveryService {
         Return raw JSON only, no markdown fences, no explanation.
         """
 
-        let messages: [(role: String, content: String, imageData: Data?, imageMediaType: String?)] = [
-            (role: "user", content: readmeContent, imageData: nil, imageMediaType: nil)
+        let messages: [(role: String, content: String, attachments: [ChatAttachment])] = [
+            (role: "user", content: readmeContent, attachments: [])
         ]
 
         var fullResponse = ""

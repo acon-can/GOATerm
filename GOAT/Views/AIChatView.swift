@@ -14,10 +14,7 @@ struct AIChatView: View {
     @State private var apiKeyInput: String = ""
     @State private var showApiKeyField = false
     @State private var hasApiKey: Bool = APIKeyManager.load() != nil
-    @State private var pendingImageData: Data?
-    @State private var pendingImageMediaType: String?
-    @State private var pendingFileName: String?
-    @State private var pendingFileText: String?
+    @State private var pendingAttachments: [ChatAttachment] = []
     @State private var isDropTargeted = false
 
     var body: some View {
@@ -143,52 +140,58 @@ struct AIChatView: View {
             }
 
             if hasApiKey {
-            // Pending file preview
-            if pendingImageData != nil || pendingFileText != nil {
-                HStack {
-                    if pendingImageMediaType == "application/pdf" {
-                        VStack(spacing: 2) {
-                            Image(systemName: "doc.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(.red)
-                            Text(pendingFileName ?? "PDF")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        }
-                        .frame(width: 60, height: 60)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.1)))
-                    } else if let fileData = pendingImageData, let nsImage = NSImage(data: fileData) {
-                        Image(nsImage: nsImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 80)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    } else if pendingFileText != nil {
-                        VStack(spacing: 2) {
-                            Image(systemName: "doc.text.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(.accentColor)
-                            Text(pendingFileName ?? "File")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        }
-                        .frame(width: 60, height: 60)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.1)))
-                    }
+            // Pending attachments preview
+            if !pendingAttachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(pendingAttachments) { attachment in
+                            ZStack(alignment: .topTrailing) {
+                                if attachment.isPDF {
+                                    VStack(spacing: 2) {
+                                        Image(systemName: "doc.fill")
+                                            .font(.system(size: 28))
+                                            .foregroundColor(.red)
+                                        Text(attachment.fileName ?? "PDF")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    .frame(width: 60, height: 60)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.1)))
+                                } else if attachment.isImage, let nsImage = NSImage(data: attachment.data) {
+                                    Image(nsImage: nsImage)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(maxHeight: 60)
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                } else if attachment.isTextFile {
+                                    VStack(spacing: 2) {
+                                        Image(systemName: "doc.text.fill")
+                                            .font(.system(size: 28))
+                                            .foregroundColor(.accentColor)
+                                        Text(attachment.fileName ?? "File")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    .frame(width: 60, height: 60)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.1)))
+                                }
 
-                    Button(action: { clearPendingFile() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
+                                Button(action: { removePendingAttachment(attachment.id) }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                        .background(Circle().fill(Color(nsColor: .controlBackgroundColor)).frame(width: 14, height: 14))
+                                }
+                                .buttonStyle(.plain)
+                                .offset(x: 4, y: -4)
+                            }
+                        }
                     }
-                    .buttonStyle(.plain)
-
-                    Spacer()
+                    .padding(.horizontal, 10)
+                    .padding(.top, 4)
                 }
-                .padding(.horizontal, 10)
-                .padding(.top, 4)
             }
 
             // Input area
@@ -205,7 +208,7 @@ struct AIChatView: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.plain)
-                .disabled(chatSession.pendingInput.trimmingCharacters(in: .whitespaces).isEmpty && pendingImageData == nil && pendingFileText == nil && !chatSession.isStreaming)
+                .disabled(chatSession.pendingInput.trimmingCharacters(in: .whitespaces).isEmpty && pendingAttachments.isEmpty && !chatSession.isStreaming)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -420,33 +423,30 @@ struct AIChatView: View {
     }
 
     private func handleFileDrop(_ providers: [NSItemProvider]) -> Bool {
+        var handled = false
         for provider in providers {
-            // Try PDF data directly
             if provider.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) {
+                handled = true
                 provider.loadDataRepresentation(forTypeIdentifier: UTType.pdf.identifier) { data, _ in
                     guard let data else { return }
                     DispatchQueue.main.async {
-                        self.pendingImageData = data
-                        self.pendingImageMediaType = "application/pdf"
-                        self.pendingFileName = nil
+                        self.pendingAttachments.append(
+                            ChatAttachment(data: data, mediaType: "application/pdf", fileName: nil, fileText: nil)
+                        )
                     }
                 }
-                return true
-            }
-            // Try image data directly
-            if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                handled = true
                 provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
                     guard let data else { return }
                     DispatchQueue.main.async {
-                        self.pendingImageData = data
-                        self.pendingImageMediaType = "image/png"
-                        self.pendingFileName = nil
+                        self.pendingAttachments.append(
+                            ChatAttachment(data: data, mediaType: "image/png", fileName: nil, fileText: nil)
+                        )
                     }
                 }
-                return true
-            }
-            // Any other file — read as text
-            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                handled = true
                 provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
                     let url: URL?
                     if let urlItem = item as? URL {
@@ -461,31 +461,30 @@ struct AIChatView: View {
                     let fileName = url.lastPathComponent
                     if let text = try? String(contentsOf: url, encoding: .utf8) {
                         DispatchQueue.main.async {
-                            self.pendingFileText = text
-                            self.pendingFileName = fileName
-                            self.pendingImageData = nil
-                            self.pendingImageMediaType = nil
+                            self.pendingAttachments.append(
+                                ChatAttachment(data: Data(), mediaType: "text/plain", fileName: fileName, fileText: text)
+                            )
                         }
                     }
                 }
-                return true
             }
         }
-        return false
+        return handled
     }
 
     private func clearPendingFile() {
-        pendingImageData = nil
-        pendingImageMediaType = nil
-        pendingFileText = nil
-        pendingFileName = nil
+        pendingAttachments.removeAll()
+    }
+
+    private func removePendingAttachment(_ id: UUID) {
+        pendingAttachments.removeAll { $0.id == id }
     }
 
     private func requestContextSummary() {
         chatSession.addMessage(role: .user, content: "What context do you have about my project?")
         errorMessage = nil
 
-        let messages = chatSession.messages.map { (role: $0.role.rawValue, content: $0.content, imageData: $0.imageData, imageMediaType: $0.imageMediaType) }
+        let messages = chatSession.messages.map { (role: $0.role.rawValue, content: $0.content, attachments: $0.attachments) }
         let systemPrompt = buildSystemPrompt()
 
         chatSession.isStreaming = true
@@ -517,30 +516,34 @@ struct AIChatView: View {
 
     private func sendMessage() {
         let text = chatSession.pendingInput.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty || pendingImageData != nil || pendingFileText != nil else { return }
+        guard !text.isEmpty || !pendingAttachments.isEmpty else { return }
+
+        // Build message text, incorporating any text file attachments inline
+        let textAttachments = pendingAttachments.filter { $0.isTextFile }
+        let mediaAttachments = pendingAttachments.filter { !$0.isTextFile }
 
         var msgText: String
-        if let fileText = pendingFileText {
-            let name = pendingFileName ?? "file"
+        if !textAttachments.isEmpty {
             let userText = text.isEmpty ? "Here is the file content. Please review it." : text
-            msgText = "\(userText)\n\n**\(name)**:\n```\n\(fileText)\n```"
+            var parts = [userText]
+            for attachment in textAttachments {
+                let name = attachment.fileName ?? "file"
+                parts.append("\n**\(name)**:\n```\n\(attachment.fileText ?? "")\n```")
+            }
+            msgText = parts.joined()
         } else if text.isEmpty {
-            msgText = pendingImageData != nil ? "What's in this?" : text
+            msgText = !mediaAttachments.isEmpty ? "What's in this?" : text
         } else {
             msgText = text
         }
 
-        let msg = ChatMessage(role: .user, content: msgText, imageData: pendingImageData, imageMediaType: pendingImageMediaType)
+        let msg = ChatMessage(role: .user, content: msgText, attachments: mediaAttachments)
         chatSession.messages.append(msg)
         chatSession.pendingInput = ""
         clearPendingFile()
         errorMessage = nil
 
-        if PreferencesManager.shared.logChatHistory {
-            PromptHistoryService.shared.addPrompt(msgText, directory: currentDirectory)
-        }
-
-        let messages = chatSession.messages.map { (role: $0.role.rawValue, content: $0.content, imageData: $0.imageData, imageMediaType: $0.imageMediaType) }
+        let messages = chatSession.messages.map { (role: $0.role.rawValue, content: $0.content, attachments: $0.attachments) }
         let systemPrompt = buildSystemPrompt()
 
         chatSession.isStreaming = true
@@ -608,30 +611,38 @@ struct ChatBubbleView: View {
             if message.role == .user { Spacer(minLength: 40) }
 
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
-                if message.imageData != nil, message.imageMediaType == "application/pdf" {
-                    HStack(spacing: 4) {
-                        Image(systemName: "doc.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.red)
-                        Text("PDF")
-                            .font(PreferencesManager.uiFont(size: 11))
-                            .foregroundColor(.secondary)
+                if !message.attachments.isEmpty {
+                    let cols = min(message.attachments.count, 3)
+                    let gridItems = Array(repeating: GridItem(.flexible(), spacing: 4), count: cols)
+                    LazyVGrid(columns: gridItems, spacing: 4) {
+                        ForEach(message.attachments) { attachment in
+                            if attachment.isPDF {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "doc.fill")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.red)
+                                    Text("PDF")
+                                        .font(PreferencesManager.uiFont(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(6)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.1)))
+                            } else if attachment.isImage, let nsImage = NSImage(data: attachment.data) {
+                                Image(nsImage: nsImage)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: 200, maxHeight: 150)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                        }
                     }
-                    .padding(6)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.1)))
-                } else if let imgData = message.imageData, let nsImage = NSImage(data: imgData) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: 200, maxHeight: 150)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
 
                 if !message.content.isEmpty {
                     Text(message.content)
                         .font(PreferencesManager.uiFont(size: 13))
                         .textSelection(.enabled)
-                } else if message.imageData == nil {
+                } else if message.attachments.isEmpty {
                     Text("...")
                         .font(PreferencesManager.uiFont(size: 13))
                 }

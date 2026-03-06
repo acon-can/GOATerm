@@ -2,7 +2,6 @@ import SwiftUI
 
 struct TerminalStatusBarView: View {
     let session: TerminalSession
-    @State private var showHistory = false
 
     private var abbreviatedDirectory: String {
         let home = NSHomeDirectory()
@@ -15,49 +14,8 @@ struct TerminalStatusBarView: View {
         return dir
     }
 
-    private var isClaudeCodeRunning: Bool {
-        guard let cmd = session.runningCommand else { return false }
-        let lower = cmd.lowercased()
-        return lower.hasPrefix("claude")
-    }
-
-    /// Extract the prompt portion from a claude command (everything after "claude ")
-    private var lastClaudePrompt: String? {
-        guard let cmd = session.lastCommand else { return nil }
-        let lower = cmd.lowercased()
-        guard lower.hasPrefix("claude") else { return nil }
-        // Strip the "claude" prefix and any leading whitespace
-        let afterClaude = cmd.dropFirst("claude".count).drop(while: { $0 == " " })
-        let prompt = String(afterClaude)
-        return prompt.isEmpty ? nil : prompt
-    }
-
-    private var truncatedPrompt: String? {
-        guard let prompt = lastClaudePrompt else { return nil }
-        if prompt.count <= 40 {
-            return prompt
-        }
-        return String(prompt.prefix(40)) + "..."
-    }
-
     var body: some View {
         HStack(spacing: 6) {
-            // Always-visible prompt history button
-            Button(action: { showHistory = true }) {
-                HStack(spacing: 4) {
-                    Text("History")
-                        .font(.system(size: 10, design: .monospaced))
-                    if isClaudeCodeRunning, let display = truncatedPrompt {
-                        Text(display)
-                            .lineLimit(1)
-                            .font(.system(size: 10, design: .monospaced))
-                    }
-                }
-                .foregroundColor(isClaudeCodeRunning ? .accentColor : .secondary)
-            }
-            .buttonStyle(HoverButtonStyle(padding: 2))
-            .help("View prompt history")
-
             Spacer()
             Text(abbreviatedDirectory)
                 .lineLimit(1)
@@ -68,9 +26,6 @@ struct TerminalStatusBarView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background(Color(nsColor: .controlBackgroundColor))
-        .sheet(isPresented: $showHistory) {
-            PromptHistoryView(directory: session.currentDirectory)
-        }
     }
 }
 

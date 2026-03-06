@@ -36,8 +36,8 @@ final class PreferencesManager {
     var gitignoreBacklog: Bool {
         didSet { UserDefaults.standard.set(gitignoreBacklog, forKey: "gitignoreBacklog") }
     }
-    var logChatHistory: Bool {
-        didSet { UserDefaults.standard.set(logChatHistory, forKey: "logChatHistory") }
+    var dynamicWindowColor: Bool {
+        didSet { UserDefaults.standard.set(dynamicWindowColor, forKey: "dynamicWindowColor") }
     }
 
     // Chat context toggles
@@ -95,7 +95,7 @@ final class PreferencesManager {
         let keys = [
             "fontName", "fontSize", "scrollbackLines", "cursorBlink",
             "optionAsMeta", "backlogFontSize", "defaultDirectory", "gitignoreBacklog",
-            "logChatHistory",
+            "dynamicWindowColor",
             "chatModel",
             "contextFileTree", "contextGitStatus", "contextReadme", "contextClaudeMd",
             "contextManifest", "contextEnvVars", "contextServers", "contextBacklog",
@@ -122,7 +122,7 @@ final class PreferencesManager {
         contextServers = true
         contextBacklog = true
         chatModel = "claude-opus-4-6"
-        logChatHistory = true
+        dynamicWindowColor = true
     }
 
     private init() {
@@ -135,7 +135,7 @@ final class PreferencesManager {
         self.backlogFontSize = defaults.object(forKey: "backlogFontSize") as? CGFloat ?? 14.0
         self.defaultDirectory = defaults.string(forKey: "defaultDirectory")
         self.gitignoreBacklog = defaults.object(forKey: "gitignoreBacklog") as? Bool ?? true
-        self.logChatHistory = defaults.object(forKey: "logChatHistory") as? Bool ?? true
+
         self.contextFileTree = defaults.object(forKey: "contextFileTree") as? Bool ?? true
         self.contextGitStatus = defaults.object(forKey: "contextGitStatus") as? Bool ?? true
         self.contextReadme = defaults.object(forKey: "contextReadme") as? Bool ?? true
@@ -144,6 +144,7 @@ final class PreferencesManager {
         self.contextEnvVars = defaults.object(forKey: "contextEnvVars") as? Bool ?? true
         self.contextServers = defaults.object(forKey: "contextServers") as? Bool ?? true
         self.contextBacklog = defaults.object(forKey: "contextBacklog") as? Bool ?? true
+        self.dynamicWindowColor = defaults.object(forKey: "dynamicWindowColor") as? Bool ?? true
         self.chatModel = defaults.string(forKey: "chatModel") ?? "claude-opus-4-6"
     }
 }
@@ -256,15 +257,6 @@ struct GeneralPreferencesView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Cursor blink", isOn: $prefs.cursorBlink)
                     Text("Makes the terminal cursor blink to help locate it on screen.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            Section("Chat") {
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Log chat history", isOn: $prefs.logChatHistory)
-                    Text("Saves chat prompts to chat-history.goat.md in your project directory for later review. This file is always added to .gitignore automatically.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -412,6 +404,15 @@ struct AppearancePreferencesView: View {
 
     var body: some View {
         Form {
+            Section("Window") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Dynamic window color", isOn: $prefs.dynamicWindowColor)
+                    Text("Tints the window background to match the active terminal's color. Each tab is assigned a color automatically, giving you a visual cue for which terminal is focused.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             Section("Font") {
                 VStack(alignment: .leading, spacing: 4) {
                     TextField("Font name", text: $prefs.fontName)

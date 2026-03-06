@@ -6,6 +6,11 @@ class TerminalContainerView: NSView {
     let terminalView: LocalProcessTerminalView
     var onMouseDown: (() -> Void)?
 
+    // Prevent window drag from intercepting mouse events meant for the
+    // terminal (text selection). Without this, isMovableByWindowBackground
+    // causes click-and-drag on the terminal to move the window.
+    override var mouseDownCanMoveWindow: Bool { false }
+
     init(terminalView: LocalProcessTerminalView) {
         self.terminalView = terminalView
         super.init(frame: .zero)
@@ -178,24 +183,23 @@ struct TerminalPaneView: NSViewRepresentable {
 
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
+                    let log = DiagnosticLogger.shared
                     switch varName {
                     case "gitBranch":
-                        self.session.gitBranch = value.isEmpty ? nil : value
+                        let newValue = value.isEmpty ? nil : value
+                        guard self.session.gitBranch != newValue else { return }
+                        self.session.gitBranch = newValue
                     case "currentCommand":
-                        self.session.runningCommand = value.isEmpty ? nil : value
+                        let newValue = value.isEmpty ? nil : value
+                        guard self.session.runningCommand != newValue else {
+                            if log.isVerbose { log.terminal.debug("Skipped redundant runningCommand set") }
+                            return
+                        }
+                        self.session.runningCommand = newValue
                         if !value.isEmpty {
                             self.session.lastCommand = value
                             self.session.commandStartTime = Date()
                             self.session.lastOutputContainsPermissionDenied = false
-
-                            // Save Claude prompts to history
-                            if value.lowercased().hasPrefix("claude") {
-                                let afterClaude = value.dropFirst("claude".count).drop(while: { $0 == " " })
-                                let prompt = String(afterClaude)
-                                if !prompt.isEmpty {
-                                    PromptHistoryService.shared.addPrompt(prompt, directory: self.session.currentDirectory)
-                                }
-                            }
                         }
                     default:
                         break
@@ -280,7 +284,18 @@ struct TerminalPaneView: NSViewRepresentable {
                 path = directory
             }
             DispatchQueue.main.async { [weak self] in
-                self?.session.currentDirectory = path
+                guard let self = self else { return }
+                // Skip redundant updates — @Observable fires notifications even
+                // when the value hasn't changed, which cascades through the entire
+                // backlog/kanban observation chain.
+                guard self.session.currentDirectory != path else {
+                    if DiagnosticLogger.shared.isVerbose {
+                        DiagnosticLogger.shared.terminal.debug("Skipped redundant currentDirectory set: \(path, privacy: .public)")
+                    }
+                    return
+                }
+                DiagnosticLogger.shared.trackRate("directoryChange", threshold: 10, windowSeconds: 5, logger: DiagnosticLogger.shared.terminal)
+                self.session.currentDirectory = path
             }
         }
 
@@ -295,6 +310,10 @@ struct TerminalPaneView: NSViewRepresentable {
 }
 
 extension LocalProcessTerminalView {
+    // Prevent isMovableByWindowBackground from hijacking mouse drags
+    // that should be text selection in the terminal.
+    override open var mouseDownCanMoveWindow: Bool { false }
+
     func applyGOATTheme() {
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let bg = NSColor.windowBackgroundColor
