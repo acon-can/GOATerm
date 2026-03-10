@@ -11,10 +11,9 @@ struct GOATApp: App {
             MainWindowView(windowState: windowState)
                 .frame(minWidth: 600, minHeight: 400)
                 .task {
-                    // Start GitHub polling if authenticated
+                    // Check GitHub auth status (data fetched on-demand when Git panel opens)
                     if await GitHubService.isAuthenticated() {
                         await MainActor.run { windowState.githubState.isAuthenticated = true }
-                        GitHubPollingService.shared.startPolling(state: windowState.githubState)
                     }
                 }
         }

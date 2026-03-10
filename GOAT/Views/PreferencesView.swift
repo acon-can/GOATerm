@@ -70,6 +70,18 @@ final class PreferencesManager {
         didSet { UserDefaults.standard.set(chatModel, forKey: "chatModel") }
     }
 
+    /// Chat response tone: "detailed", "balanced", or "concise"
+    var chatTone: String {
+        didSet { UserDefaults.standard.set(chatTone, forKey: "chatTone") }
+    }
+
+    var saveChatHistory: Bool {
+        didSet { UserDefaults.standard.set(saveChatHistory, forKey: "saveChatHistory") }
+    }
+    var gitignoreChatHistory: Bool {
+        didSet { UserDefaults.standard.set(gitignoreChatHistory, forKey: "gitignoreChatHistory") }
+    }
+
     static func uiFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         .custom("DM Sans", size: size).weight(weight)
     }
@@ -96,7 +108,7 @@ final class PreferencesManager {
             "fontName", "fontSize", "scrollbackLines", "cursorBlink",
             "optionAsMeta", "backlogFontSize", "defaultDirectory", "gitignoreBacklog",
             "dynamicWindowColor",
-            "chatModel",
+            "chatModel", "chatTone", "saveChatHistory", "gitignoreChatHistory",
             "contextFileTree", "contextGitStatus", "contextReadme", "contextClaudeMd",
             "contextManifest", "contextEnvVars", "contextServers", "contextBacklog",
             "panelBacklogVisible", "panelBacklogWidthRatio",
@@ -122,6 +134,9 @@ final class PreferencesManager {
         contextServers = true
         contextBacklog = true
         chatModel = "claude-opus-4-6"
+        chatTone = "balanced"
+        saveChatHistory = true
+        gitignoreChatHistory = true
         dynamicWindowColor = true
     }
 
@@ -146,6 +161,9 @@ final class PreferencesManager {
         self.contextBacklog = defaults.object(forKey: "contextBacklog") as? Bool ?? true
         self.dynamicWindowColor = defaults.object(forKey: "dynamicWindowColor") as? Bool ?? true
         self.chatModel = defaults.string(forKey: "chatModel") ?? "claude-opus-4-6"
+        self.chatTone = defaults.string(forKey: "chatTone") ?? "balanced"
+        self.saveChatHistory = defaults.object(forKey: "saveChatHistory") as? Bool ?? true
+        self.gitignoreChatHistory = defaults.object(forKey: "gitignoreChatHistory") as? Bool ?? true
     }
 }
 
@@ -369,8 +387,45 @@ struct APIPreferencesView: View {
 struct ChatContextPreferencesView: View {
     @Bindable var prefs: PreferencesManager
 
+    private let toneOptions: [(id: String, label: String)] = [
+        ("detailed", "Detailed"),
+        ("balanced", "Balanced"),
+        ("concise", "Concise"),
+    ]
+
     var body: some View {
         Form {
+            Section {
+                Picker("Response style", selection: $prefs.chatTone) {
+                    ForEach(toneOptions, id: \.id) { option in
+                        Text(option.label).tag(option.id)
+                    }
+                }
+            } header: {
+                Text("Tone")
+            } footer: {
+                Text("Detailed gives thorough explanations. Concise gives short, direct answers. Balanced is in between.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section {
+                Toggle("Save chat history", isOn: $prefs.saveChatHistory)
+                VStack(alignment: .leading, spacing: 2) {
+                    Toggle("Add chat history to .gitignore", isOn: $prefs.gitignoreChatHistory)
+                    Text("Keeps chat-history.goat.md out of version control.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 20)
+                }
+            } header: {
+                Text("History")
+            } footer: {
+                Text("When enabled, chat messages are saved to chat-history.goat.md in the terminal's working directory and restored on next launch.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             Section {
                 Toggle("File Tree", isOn: $prefs.contextFileTree)
                 Toggle("Git Status", isOn: $prefs.contextGitStatus)

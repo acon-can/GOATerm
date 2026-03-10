@@ -23,7 +23,7 @@ struct AIChatView: View {
     let gitInfo: LocalGitInfo?
     let serverStore: ServerStore
     let currentDirectory: String
-    let backlogContext: String
+    let backlogContextProvider: () -> String
     var onServerStarted: (() -> Void)?
     @State private var errorMessage: String?
     @State private var apiKeyInput: String = ""
@@ -113,7 +113,7 @@ struct AIChatView: View {
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(12)
-                                .padding(.top, 28)
+                                .padding(.top, 34)
                             } else {
                                 LazyVStack(alignment: .leading, spacing: 8) {
                                     ForEach(chatSession.messages) { message in
@@ -122,7 +122,7 @@ struct AIChatView: View {
                                     }
                                 }
                                 .padding(8)
-                                .padding(.top, 28)
+                                .padding(.top, 34)
                                 .padding(.bottom, 56)
                             }
                         }
@@ -137,7 +137,7 @@ struct AIChatView: View {
                                     startPoint: .top,
                                     endPoint: .bottom
                                 )
-                                .frame(height: 40)
+                                .frame(height: 46)
 
                                 Color.black
                             }
@@ -267,27 +267,37 @@ struct AIChatView: View {
             .padding(.vertical, 6)
         }
         .background(
-            Rectangle().fill(.ultraThinMaterial)
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .black.opacity(0.5), location: 0.4),
-                            .init(color: .black.opacity(0.75), location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: .white.opacity(0.5), location: 0.4),
+                    .init(color: .white.opacity(0.75), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .blendMode(.softLight)
+            .padding(.trailing, 18)
         )
     }
 
     private func buildSystemPrompt() -> String {
         let ctx = PreferencesManager.shared
+
+        let toneInstruction: String
+        switch ctx.chatTone {
+        case "detailed":
+            toneInstruction = "Be thorough and helpful. Provide detailed explanations, examples, and context. Walk the user through your reasoning step by step."
+        case "concise":
+            toneInstruction = "Be brief and direct. Give short, to-the-point answers. Skip pleasantries and filler — lead with the answer or action."
+        default:
+            toneInstruction = "Be friendly and encouraging. Explain things clearly and concisely."
+        }
+
         var prompt = """
         You are the assistant in GOAT (Greatest of All Terminals). Your job is to help the user build their app — answer questions, debug issues, suggest approaches, and explain concepts clearly.
 
-        Be friendly and encouraging. Explain things clearly and concisely.
+        \(toneInstruction)
 
         ## User's Environment
 
@@ -408,8 +418,9 @@ struct AIChatView: View {
         """
 
         // Include backlog if non-empty
-        if ctx.contextBacklog, !backlogContext.isEmpty {
-            prompt += "\n\n## Backlog\n\n<backlog>\n\(backlogContext)\n</backlog>"
+        let backlogText = backlogContextProvider()
+        if ctx.contextBacklog, !backlogText.isEmpty {
+            prompt += "\n\n## Backlog\n\n<backlog>\n\(backlogText)\n</backlog>"
         }
 
         return prompt
@@ -648,10 +659,33 @@ struct AIChatView: View {
 
 struct ChatBubbleView: View {
     let message: ChatMessage
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var bubbleColor: Color {
+        if message.role == .user {
+            return .blue
+        } else {
+            return colorScheme == .dark
+                ? Color(nsColor: .darkGray)
+                : Color(white: 0.9)
+        }
+    }
+
+    private var textColor: Color {
+        message.role == .user ? .white : .primary
+    }
 
     var body: some View {
-        HStack {
+        HStack(alignment: .bottom, spacing: 0) {
             if message.role == .user { Spacer(minLength: 40) }
+
+            if message.role == .assistant {
+                // Tail on left for assistant
+                BubbleTail(isFromUser: false)
+                    .fill(bubbleColor)
+                    .frame(width: 10, height: 16)
+                    .offset(x: 6, y: 0)
+            }
 
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
                 if !message.attachments.isEmpty {
@@ -684,22 +718,62 @@ struct ChatBubbleView: View {
                 if !message.content.isEmpty {
                     Text(message.content)
                         .font(PreferencesManager.uiFont(size: 13))
+                        .foregroundColor(textColor)
                         .textSelection(.enabled)
                 } else if message.attachments.isEmpty {
                     Text("...")
                         .font(PreferencesManager.uiFont(size: 13))
+                        .foregroundColor(textColor)
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(
-                message.role == .user
-                    ? Color.accentColor.opacity(0.15)
-                    : Color.secondary.opacity(0.1),
-                in: RoundedRectangle(cornerRadius: 10)
-            )
+            .background(bubbleColor, in: RoundedRectangle(cornerRadius: 16))
+
+            if message.role == .user {
+                // Tail on right for user
+                BubbleTail(isFromUser: true)
+                    .fill(bubbleColor)
+                    .frame(width: 10, height: 16)
+                    .offset(x: -6, y: 0)
+            }
 
             if message.role == .assistant { Spacer(minLength: 40) }
         }
+    }
+}
+
+// MARK: - Bubble Tail Shape
+
+struct BubbleTail: Shape {
+    let isFromUser: Bool
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        if isFromUser {
+            // Tail curves out to bottom-right
+            path.move(to: CGPoint(x: 0, y: rect.maxY - 4))
+            path.addQuadCurve(
+                to: CGPoint(x: rect.maxX, y: rect.maxY),
+                control: CGPoint(x: 0, y: rect.maxY)
+            )
+            path.addQuadCurve(
+                to: CGPoint(x: 0, y: rect.minY),
+                control: CGPoint(x: rect.maxX * 0.1, y: rect.maxY * 0.5)
+            )
+        } else {
+            // Tail curves out to bottom-left
+            path.move(to: CGPoint(x: rect.maxX, y: rect.maxY - 4))
+            path.addQuadCurve(
+                to: CGPoint(x: 0, y: rect.maxY),
+                control: CGPoint(x: rect.maxX, y: rect.maxY)
+            )
+            path.addQuadCurve(
+                to: CGPoint(x: rect.maxX, y: rect.minY),
+                control: CGPoint(x: rect.maxX * 0.9, y: rect.maxY * 0.5)
+            )
+        }
+        path.closeSubpath()
+        return path
     }
 }

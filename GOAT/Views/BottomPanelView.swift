@@ -80,18 +80,17 @@ struct BottomPanelView: View {
             tabBarContent
                 .background {
                     if windowState.isBottomPanelExpanded && windowState.bottomPanelMode == .chat {
-                        Rectangle().fill(.thickMaterial)
-                            .mask(
-                                LinearGradient(
-                                    stops: [
-                                        .init(color: .black.opacity(0.75), location: 0),
-                                        .init(color: .black.opacity(0.5), location: 0.7),
-                                        .init(color: .clear, location: 1)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
+                        LinearGradient(
+                            stops: [
+                                .init(color: .white.opacity(0.75), location: 0),
+                                .init(color: .white.opacity(0.5), location: 0.7),
+                                .init(color: .clear, location: 1)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .blendMode(.softLight)
+                        .padding(.trailing, 18)
                     }
                 }
         }
@@ -189,6 +188,30 @@ struct BottomPanelView: View {
                 )
             }
 
+            // Refresh button for GitHub mode
+            if windowState.bottomPanelMode == .github,
+               windowState.githubState.isAuthenticated {
+                Button(action: {
+                    Task {
+                        await GitHubPollingService.shared.refresh(state: windowState.githubState)
+                    }
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .rotationEffect(.degrees(windowState.githubState.isLoading ? 360 : 0))
+                        .animation(
+                            windowState.githubState.isLoading
+                                ? .linear(duration: 1).repeatForever(autoreverses: false)
+                                : .default,
+                            value: windowState.githubState.isLoading
+                        )
+                }
+                .buttonStyle(HoverButtonStyle())
+                .help("Refresh GitHub data")
+                .disabled(windowState.githubState.isLoading)
+            }
+
             // Refresh button for Servers mode
             if windowState.isBottomPanelExpanded,
                windowState.bottomPanelMode == .servers,
@@ -206,7 +229,7 @@ struct BottomPanelView: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(HoverButtonStyle())
-                .help("Rescan README.md")
+                .help("Rescan README.md & CLAUDE.md")
             }
 
             // Refresh button for Environment mode
@@ -249,6 +272,20 @@ struct BottomPanelView: View {
                 .help("Rescan directory")
             }
 
+            // Clear server log button — beside the drawer button
+            if windowState.isBottomPanelExpanded,
+               windowState.bottomPanelMode == .servers,
+               let server = windowState.activeTab?.serverStore.selectedServer,
+               !server.logOutput.isEmpty {
+                Button(action: { server.logOutput = "" }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(HoverButtonStyle())
+                .help("Clear log")
+            }
+
             // Expand/collapse button — aligned with submit button below
             Button(action: {
                 windowState.toggleBottomPanel()
@@ -260,12 +297,12 @@ struct BottomPanelView: View {
             }
             .buttonStyle(PanelTabButtonStyle(
                 isActive: windowState.isBottomPanelExpanded,
-                activeColor: activeColor
+                activeColor: .gray
             ))
             .help(windowState.isBottomPanelExpanded ? "Collapse panel" : "Expand panel")
         }
         .padding(.leading, 8)
-        .padding(.trailing, 28)
+        .padding(.trailing, 23)
         .padding(.top, 6)
         .padding(.bottom, 4)
     }
@@ -281,7 +318,7 @@ struct BottomPanelView: View {
                     gitInfo: windowState.githubState.localGitInfo,
                     serverStore: tab.serverStore,
                     currentDirectory: tab.focusedSession?.currentDirectory ?? NSHomeDirectory(),
-                    backlogContext: windowState.activeBacklog.copyAllText,
+                    backlogContextProvider: { [weak windowState] in windowState?.activeBacklog.copyAllText ?? "" },
                     onServerStarted: { windowState.bottomPanelMode = .servers }
                 )
             case .github:

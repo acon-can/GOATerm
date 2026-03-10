@@ -27,8 +27,8 @@ final class WindowState {
     var activeTabId: UUID?
     var showSaveWorkspace: Bool = false
     var showWorkspaceManager: Bool = false
-    private var backlogCache: [String: BacklogStore] = [:]
-    private var backlogCacheOrder: [String] = []
+    @ObservationIgnored private var backlogCache: [String: BacklogStore] = [:]
+    @ObservationIgnored private var backlogCacheOrder: [String] = []
     private static let maxCacheSize = 10
     private var pendingSaveWorkItem: DispatchWorkItem?
     private let saveDebounceInterval: TimeInterval = 0.5
@@ -123,12 +123,10 @@ final class WindowState {
             if let cached = backlogCache[dir] {
                 return cached
             }
-            // Load and cache — done outside the getter's observation tracking
-            // by deferring the mutation to avoid cascading @Observable notifications.
+            // Cache is @ObservationIgnored so this mutation won't trigger
+            // SwiftUI re-renders — safe to do synchronously in the getter.
             let store = BacklogFileService.shared.load(from: dir)
-            DispatchQueue.main.async { [self] in
-                self.cacheBacklogStore(store, for: dir)
-            }
+            cacheBacklogStore(store, for: dir)
             return store
         }
         set {

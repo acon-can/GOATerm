@@ -20,7 +20,10 @@ struct SplitContainerView: View {
                     fontName: PreferencesManager.defaultFontName,
                     fontSize: prefs.fontSize,
                     onProcessExit: { onProcessExit?(session.id) },
-                    onFocusSession: { onFocusSession?(session.id) }
+                    onFocusSession: {
+                        session.hasUnseenCompletion = false
+                        onFocusSession?(session.id)
+                    }
                 )
                 .overlay {
                     TerminalDropOverlay(sessionId: session.id)

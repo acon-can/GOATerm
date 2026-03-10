@@ -120,13 +120,14 @@ struct BulletRowView: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(HoverButtonStyle())
-            .help(statusLabel(bullet.status))
+            .instantTooltip(statusLabel(bullet.status))
 
             // Always a TextField — styled differently based on focus
             TextField("Enter prompt...", text: $bullet.text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(prefs.backlogFont)
                 .lineLimit(1...)
+                .layoutPriority(1)
                 .padding(.horizontal, isEditing ? 4 : 0)
                 .padding(.vertical, isEditing ? 2 : 0)
                 .background(
@@ -206,39 +207,26 @@ private struct RowHoverBackground: View {
 struct AddPromptButtonView: View {
     let prefs: PreferencesManager
     let action: () -> Void
-    @State private var isHovered = false
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
+        HStack(spacing: 4) {
+            Button(action: action) {
                 Image(systemName: "plus")
                     .font(prefs.backlogFont)
+                    .foregroundColor(.accentColor)
+            }
+            .buttonStyle(HoverButtonStyle())
+
+            Button(action: action) {
                 Text("Add prompt")
                     .font(prefs.backlogFont)
+                    .foregroundColor(.accentColor)
             }
-            .foregroundColor(.accentColor)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(colorScheme == .dark
-                          ? Color.white.opacity(isHovered ? 0.08 : 0)
-                          : Color.black.opacity(isHovered ? 0.06 : 0))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.accentColor.opacity(isHovered ? 0.3 : 0), lineWidth: 1)
-            )
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
-            }
-        }
-        .padding(.vertical, 1)
-        .padding(.leading, 2)
+        .padding(.vertical, 2)
+        .padding(.leading, 6)
+        .padding(.trailing, 4)
     }
 }
 

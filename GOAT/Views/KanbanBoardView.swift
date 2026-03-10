@@ -412,10 +412,11 @@ private struct CompletionFade: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(opacity)
+            .contentShape(Rectangle())
             .onChange(of: isDone) { _, done in
                 if done && hideCompleted {
                     withAnimation(.easeIn(duration: 14)) {
-                        opacity = 0
+                        opacity = 0.15
                     }
                 } else if !done {
                     withAnimation(.easeOut(duration: 0.3)) {

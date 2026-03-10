@@ -47,7 +47,6 @@ enum IslandLayout {
 class WindowConfiguratorView: NSView {
     private var observers: [NSObjectProtocol] = []
     private var isPositioning = false
-    private var positionTimer: Timer?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -55,8 +54,6 @@ class WindowConfiguratorView: NSView {
         // Clean up when removed from window
         guard let window = window else {
             removeObservers()
-            positionTimer?.invalidate()
-            positionTimer = nil
             return
         }
 
@@ -106,11 +103,14 @@ class WindowConfiguratorView: NSView {
             self?.centerTrafficLights()
         })
 
-        // Polling timer — catches cases where macOS resets button positions
-        // during its own layout without posting any notification.
-        positionTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+        // Fullscreen transitions can reset button positions
+        observers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didExitFullScreenNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
             self?.centerTrafficLights()
-        }
+        })
     }
 
     private func removeObservers() {
@@ -118,8 +118,6 @@ class WindowConfiguratorView: NSView {
             NotificationCenter.default.removeObserver(observer)
         }
         observers.removeAll()
-        positionTimer?.invalidate()
-        positionTimer = nil
     }
 
     override func layout() {

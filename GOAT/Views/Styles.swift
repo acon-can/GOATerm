@@ -164,6 +164,45 @@ struct ConditionalBouncingModifier: ViewModifier {
     }
 }
 
+// MARK: - Instant Tooltip
+
+struct InstantTooltipModifier: ViewModifier {
+    let text: String
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .onHover { hovering in
+                isHovered = hovering
+            }
+            .overlay(alignment: .top) {
+                if isHovered {
+                    Text(text)
+                        .font(.caption2)
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color(nsColor: .controlBackgroundColor))
+                                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+                        )
+                        .fixedSize()
+                        .offset(y: -24)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.1), value: isHovered)
+                }
+            }
+    }
+}
+
+extension View {
+    func instantTooltip(_ text: String) -> some View {
+        modifier(InstantTooltipModifier(text: text))
+    }
+}
+
 // MARK: - Hover Reveal System
 
 /// Shared tracker that ensures only one row is "revealed" at a time.

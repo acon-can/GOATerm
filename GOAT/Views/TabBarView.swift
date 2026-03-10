@@ -78,7 +78,7 @@ struct TabBarView: View {
             }
             .buttonStyle(PanelTabButtonStyle(
                 isActive: windowState.isBacklogVisible,
-                activeColor: .accentColor
+                activeColor: .gray
             ))
             .help("Toggle Backlog (Cmd+Shift+B)")
             .padding(.trailing, 6)
@@ -138,10 +138,12 @@ struct TabItemView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            // Color dot
-            Circle()
-                .fill(isActive ? tab.color.swiftUIColor : Color.gray)
-                .frame(width: 8, height: 8)
+            // Color dot — only shown for the active tab
+            if isActive {
+                Circle()
+                    .fill(tab.color.swiftUIColor)
+                    .frame(width: 8, height: 8)
+            }
 
             // Tab name
             if isEditing {
@@ -206,6 +208,13 @@ struct TabItemView: View {
                 .stroke(tabBorderColor, lineWidth: hasCompletion ? 1.5 : 1)
         )
         .modifier(ConditionalBouncingModifier(isEnabled: hasCompletion))
+        .onChange(of: isActive) { _, active in
+            if active {
+                for session in tab.allSessions {
+                    session.hasUnseenCompletion = false
+                }
+            }
+        }
         .onHover { hovering in
             isTabHovered = hovering
         }

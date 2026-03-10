@@ -11,14 +11,29 @@ final class ServerDiscoveryService {
         store.currentDirectory = directory
 
         let readmePath = (directory as NSString).appendingPathComponent("README.md")
-        guard FileManager.default.fileExists(atPath: readmePath),
-              let readmeContent = try? String(contentsOfFile: readmePath, encoding: .utf8) else {
+        let claudeMdPath = (directory as NSString).appendingPathComponent("CLAUDE.md")
+
+        let readmeContent = FileManager.default.fileExists(atPath: readmePath)
+            ? (try? String(contentsOfFile: readmePath, encoding: .utf8)) : nil
+        let claudeMdContent = FileManager.default.fileExists(atPath: claudeMdPath)
+            ? (try? String(contentsOfFile: claudeMdPath, encoding: .utf8)) : nil
+
+        guard readmeContent != nil || claudeMdContent != nil else {
             store.discoveryStatus = .noReadme
             return
         }
 
+        var combinedContent = ""
+        if let readme = readmeContent {
+            combinedContent += "# README.md\n\n\(readme)\n\n"
+        }
+        if let claude = claudeMdContent {
+            combinedContent += "# CLAUDE.md\n\n\(claude)"
+        }
+
         let systemPrompt = """
-        You are a dev tool assistant. Given a README.md file, extract all development server commands \
+        You are a dev tool assistant. Given project documentation files (README.md and/or CLAUDE.md), \
+        extract all development server commands \
         (e.g. npm run dev, yarn start, python manage.py runserver, cargo watch, etc.).
 
         Return ONLY a JSON array of objects with "name" and "command" fields. Example:
@@ -30,7 +45,7 @@ final class ServerDiscoveryService {
         """
 
         let messages: [(role: String, content: String, attachments: [ChatAttachment])] = [
-            (role: "user", content: readmeContent, attachments: [])
+            (role: "user", content: combinedContent, attachments: [])
         ]
 
         var fullResponse = ""

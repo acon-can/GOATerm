@@ -12,16 +12,17 @@ struct ServerPanelView: View {
     }
 
     var body: some View {
-        HSplitView {
-            // Left panel: server list (only if servers exist)
+        Group {
             if hasServers {
-                serverListPanel
-                    .frame(minWidth: 180, idealWidth: 220, maxWidth: 300)
+                HSplitView {
+                    serverListPanel
+                        .frame(minWidth: 180, idealWidth: 220, maxWidth: 300)
+                    logViewerPanel
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            } else {
+                emptyStatePanel
             }
-
-            // Right panel: log viewer or empty state
-            mainPanel
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(nsColor: .controlBackgroundColor))
         .onAppear {
@@ -64,18 +65,7 @@ struct ServerPanelView: View {
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
-    // MARK: - Main Panel
-
-    @ViewBuilder
-    private var mainPanel: some View {
-        if hasServers {
-            logViewerPanel
-        } else {
-            emptyStatePanel
-        }
-    }
-
-    // MARK: - Empty State (shown in main area)
+    // MARK: - Empty State
 
     @ViewBuilder
     private var emptyStatePanel: some View {
@@ -84,17 +74,17 @@ struct ServerPanelView: View {
             case .idle, .scanning:
                 ProgressView()
                     .scaleEffect(0.7)
-                Text("Scanning README...")
+                Text("Scanning README.md & CLAUDE.md...")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
             case .noReadme:
-                Text("No README.md found. Add one with server start commands to detect them here.")
+                Text("No README.md or CLAUDE.md found. Add one with server start commands to detect them here.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
             case .noServers:
-                Text("No server commands found in README.md.")
+                Text("No server commands found in README.md or CLAUDE.md.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
